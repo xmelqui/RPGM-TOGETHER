@@ -23,6 +23,9 @@ HOST_COLOR = "#ffffff"
 EMOTES = ["👍", "😂", "😮", "❤️", "👀", "❓"]
 PING_BURST, PING_REFILL = 4, 0.6  # each player: up to 4 pings at once, then one every 0.6 s
 CHAT_BURST, CHAT_REFILL = 5, 1.5  # up to 5 messages at once, then one every 1.5 s
+DRAW_BURST, DRAW_REFILL = 40, 0.04  # drawing sends ~20 small updates a second while dragging
+DRAW_POINTS_PER_MESSAGE = 64
+DRAW_POINTS_PER_STROKE = 1500
 MAX_CHAT = 200                    # characters per message
 CHAT_HISTORY = 50                 # messages new players get when they join
 MAX_PLAYERS = 16                  # friends per lobby (protects the host's PC and upload)
@@ -84,11 +87,13 @@ class RateLimit:
 class Lobby:
     """All methods run on the lobby's asyncio loop; use the *_threadsafe helpers from elsewhere."""
 
-    def __init__(self, host_name, on_release, on_change, on_ping=lambda *a: None, on_chat=lambda msg: None):
+    def __init__(self, host_name, on_release, on_change, on_ping=lambda *a: None, on_chat=lambda msg: None,
+                 on_draw=lambda *a: None):
         self.on_release = on_release   # everyone has read -> advance the game
         self.on_change = on_change     # snapshot dict, for the host GUI
         self.on_ping = on_ping         # (name, color, kind, value): a viewer pinged or emoted
         self.on_chat = on_chat         # {"name", "color", "text", "host"}: a chat message
+        self.on_draw = on_draw         # (player id, name, color, stroke id, [(x, y)...], done)
         self.chat = collections.deque(maxlen=CHAT_HISTORY)
         self.code = new_code()         # friends need it to join (it's in the link the host shares)
         self.tokens = {}               # player id -> secret for the still-picture endpoint
@@ -217,6 +222,32 @@ class Lobby:
         elif data.get("emoji") in EMOTES:
             self.on_ping(player["name"], player["color"], "emote", data["emoji"])
 
+    def _handle_draw(self, pid, data):
+        """A piece of a line a viewer is drawing on the game picture."""
+        player = self.players.get(pid)
+        if not self.pings_enabled or not player or not player["draw_limit"].allow():
+            return
+        stroke = str(data.get("id", ""))[:16]
+        raw = data.get("points")
+        if not stroke or not isinstance(raw, list) or len(raw) > DRAW_POINTS_PER_MESSAGE:
+            return
+        points = []
+        for pt in raw:
+            try:
+                x, y = float(pt[0]), float(pt[1])
+            except (TypeError, ValueError, IndexError, KeyError):
+                return
+            if not (0 <= x <= 1 and 0 <= y <= 1):  # also rejects NaN
+                return
+            points.append((x, y))
+        counts = player.setdefault("stroke_points", {})
+        if len(counts) > 20:  # forget old strokes
+            counts.clear()
+        counts[stroke] = counts.get(stroke, 0) + len(points)
+        if counts[stroke] > DRAW_POINTS_PER_STROKE:
+            return
+        self.on_draw(pid, player["name"], player["color"], stroke, points, bool(data.get("done")))
+
     async def kick(self, pid):
         ws = self.sockets.get(pid)
         if ws is not None:
@@ -286,7 +317,8 @@ class Lobby:
                     pid = uuid.uuid4().hex[:8]
                     color = COLORS[next(self._colors) % len(COLORS)]
                     self.players[pid] = {"name": name, "color": color, "limit": RateLimit(),
-                                         "chat_limit": RateLimit(CHAT_BURST, CHAT_REFILL)}
+                                         "chat_limit": RateLimit(CHAT_BURST, CHAT_REFILL),
+                                         "draw_limit": RateLimit(DRAW_BURST, DRAW_REFILL)}
                     self.sockets[pid] = ws
                     self.tokens[pid] = secrets.token_urlsafe(16)
                     await ws.send_str(json.dumps({"type": "welcome", "id": pid, "token": self.tokens[pid],
@@ -296,6 +328,8 @@ class Lobby:
                     await self.mark_read(pid, data.get("msgId"))
                 elif kind == "chat" and pid is not None:
                     await self.send_chat(pid, data.get("text", ""))
+                elif kind == "draw" and pid is not None:
+                    self._handle_draw(pid, data)
                 elif kind in ("ping", "emote") and pid is not None:
                     self._handle_ping(pid, data)
                 elif kind == "stream-request" and pid is not None and self.streamer:

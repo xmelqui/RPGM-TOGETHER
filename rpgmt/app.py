@@ -155,7 +155,7 @@ class App:
         card, opts = theme.card(left, "Options")
         card.pack(fill="x")
         self.pings_var = tk.BooleanVar(value=self.settings["pings"])
-        ttk.Checkbutton(opts, text="Let friends ping the game", variable=self.pings_var,
+        ttk.Checkbutton(opts, text="Let friends ping and draw", variable=self.pings_var,
                         command=self._apply_pings).grid(row=0, column=0, sticky="w", padx=(0, 16))
         self.overlay_var = tk.BooleanVar(value=self.settings["overlay"])
         ttk.Checkbutton(opts, text="Show status in-game", variable=self.overlay_var,
@@ -365,7 +365,8 @@ class App:
         self.lobby = Lobby(self.settings["name"], on_release=self._release,
                            on_change=lambda s: self.events.put(lambda: self._show_state(s)),
                            on_ping=lambda *a: self.events.put(lambda: self._on_ping(*a)),
-                           on_chat=lambda m: self.events.put(lambda: self._on_chat(m)))
+                           on_chat=lambda m: self.events.put(lambda: self._on_chat(m)),
+                           on_draw=lambda *a: self.events.put(lambda: self._on_draw(*a)))
         self.lobby.pings_enabled = self.pings_var.get()
         self.lobby.blocking = self._blocking
         self.lobby.chat_enabled = self.chat_var.get()
@@ -429,7 +430,7 @@ class App:
                          "so keep other windows and notifications off the game")
             return img  # read from the screen: the overlay windows are already in it
         return draw_overlays(img, list(self.ping_layer.pings), list(self.ping_layer.emotes),
-                             self.overlay.current(), self._region_now)
+                             self.overlay.current(), self._region_now, list(self.ping_layer.strokes.values()))
 
     def _got_url(self, url):
         self.link_var.set(f"{url}/?code={self.lobby.code}" if self.lobby else url)
@@ -580,6 +581,10 @@ class App:
     def _save_option(self, key, value):
         self.settings[key] = value
         save_settings(self.settings)
+
+    def _on_draw(self, pid, name, color, stroke_id, points, done):
+        if self.pings_var.get():
+            self.ping_layer.add_stroke(pid, name, color, stroke_id, points, done)
 
     def _on_ping(self, name, color, kind, value):
         if not self.pings_var.get():

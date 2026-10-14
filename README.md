@@ -65,15 +65,20 @@ While hosting:
 
 ## Joining
 
-Run `RPGMT.exe` → **Join**, enter your name and the host's address, and click
+Run `RPGMT.exe` → **Join**, enter your name and paste the host's link, and click
 **Join**. The window shows the game live with sound:
-- **Read** (or Space): you've read the current line.
+- **Space, Z or Enter:** you've read the current line. While there's dialogue,
+  the game's top-left corner says "Space / Z = Read", then "✓ Read". The player
+  list shows who has read.
 - **Click the picture** to ping that spot on the host's screen (your name, your
   color). Clicks from several people on the same spot stack into a counter.
-- **Emote buttons** float an emoji over the host's game.
+- **Click and drag** to draw on the host's screen. The line disappears 3 seconds
+  after you let go.
 - **Chat** panel next to the game (Enter sends). You get the last 50 messages
   when you join.
-- The volume slider is at the top right.
+- **Sound and chat toggles** appear in the game's bottom-left corner when you move
+  the mouse there: 🔊 mutes the game (with a volume slider), and 💬
+  shows or hides the chat panel. Both are remembered.
 
 The lobby address also works in a normal browser (`http://26.1.2.3:47800`)
 for anyone who can't run the app.

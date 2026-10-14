@@ -12,8 +12,6 @@
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, sans-serif;
          display:flex; justify-content:center; padding:16px; }
   main { width:100%; max-width:1100px; display:flex; flex-direction:column; gap:12px; }
-  header { display:flex; align-items:center; gap:12px; }
-  h1 { font-size:16px; margin:0; color:var(--muted); font-weight:600; letter-spacing:.5px; flex:1; }
   #join { display:flex; gap:8px; flex-wrap:wrap; }
   input[type=text] { flex:1; min-width:0; padding:12px; border-radius:8px; border:1px solid var(--border);
           background:var(--panel); color:var(--text); font-size:16px; }
@@ -25,25 +23,13 @@
             background:#000; cursor:crosshair; line-height:0; }
   #screen img, #screen video { width:100%; height:auto; max-height:70vh; object-fit:contain; display:block;
                                user-select:none; -webkit-user-drag:none; background:#000; }
-  #screen .hint { position:absolute; left:8px; top:8px; line-height:1.4; font-size:12px; padding:2px 8px;
+  #screen .hint { position:absolute; left:calc(var(--gl, 0px) + 8px); top:calc(var(--gt, 0px) + 8px); line-height:1.4; font-size:12px; padding:2px 8px;
                   border-radius:6px; background:rgba(20,18,31,.8); color:var(--muted); pointer-events:none; }
   #unmute { position:absolute; inset:0; margin:auto; width:max-content; height:max-content; line-height:1.4;
             padding:12px 20px; font-size:16px; }
   .ripple { position:absolute; width:36px; height:36px; margin:-18px 0 0 -18px; border-radius:50%;
             border:3px solid var(--c); pointer-events:none; animation:ripple .6s ease-out forwards; }
   @keyframes ripple { from { transform:scale(.3); opacity:1; } to { transform:scale(1.6); opacity:0; } }
-  #controls { display:flex; gap:12px; align-items:stretch; flex-wrap:wrap; }
-  #read { flex:2; min-width:220px; min-height:90px; font-size:clamp(26px, 5vw, 40px);
-          transition:background .15s, transform .05s; }
-  #read:active:not(:disabled) { transform:scale(.98); }
-  #read:disabled { cursor:default; background:var(--panel); color:var(--muted); border:2px dashed var(--border); }
-  #read.done { background:var(--ok); color:#0d2b1f; border:0; }
-  #read small { display:block; font-size:14px; font-weight:500; opacity:.8; margin-top:4px; }
-  #emotes { flex:1; min-width:220px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
-  #emotes button { padding:6px 0; font-size:22px; background:var(--panel); border:1px solid var(--border); }
-  #emotes button:active { transform:scale(.94); }
-  #volume { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:14px; }
-  #volume input { width:110px; accent-color:var(--accent); }
   #players { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
   #players li { padding:4px 12px; border-radius:999px; background:var(--panel); border:1px solid var(--border); font-size:14px; }
   #players li.read { border-color:var(--ok); color:var(--ok); }
@@ -65,15 +51,26 @@
                background:var(--bg); color:var(--text); font-size:14px; font-family:inherit; }
   #chatForm button { padding:0 12px; font-size:14px; }
   #status { color:var(--muted); font-size:14px; }
+  #status:empty { display:none; }
+  /* Sits in the game picture's bottom-left corner (offsets set by placeOverlays()). */
+  #controls { position:absolute; left:calc(var(--gl, 0px) + 8px); bottom:calc(var(--gb, 0px) + 8px);
+              display:flex; align-items:center; gap:6px; padding:4px 6px; line-height:normal;
+              border-radius:10px; background:rgba(20,18,31,.78); cursor:default;
+              opacity:0; pointer-events:none; transition:opacity .2s; }
+  #controls.near { opacity:1; pointer-events:auto; }
+  #ink { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  #screen { touch-action:none; }
+  #controls .tool { padding:4px 9px; font-size:14px; background:var(--panel); border:1px solid var(--border);
+                   color:var(--text); border-radius:8px; white-space:nowrap; }
+  #controls .tool.off { color:var(--muted); border-style:dashed; }
+  #vol { width:90px; accent-color:var(--accent); }
+  #screen .hint.need { background:var(--accent); color:#fff; font-weight:700; font-size:13px; }
+  #screen .hint.done { background:var(--ok); color:#0d2b1f; font-weight:700; }
   .hidden { display:none !important; }
 </style>
 </head>
 <body>
 <main>
-  <header>
-    <h1>RPGMT Reading Lobby</h1>
-    <label id="volume" class="hidden" title="Game volume">&#128266; <input id="vol" type="range" min="0" max="1" step="0.05" value="1"></label>
-  </header>
 
   <section id="join">
     <input id="name" type="text" maxlength="24" placeholder="Your name" autocomplete="nickname">
@@ -87,7 +84,13 @@
     <div id="screen" class="hidden">
       <video id="video" class="hidden" playsinline autoplay></video>
       <img id="frame" alt="Live view of the game - click to ping">
-      <span class="hint" id="hint">Click to ping the host's screen</span>
+      <canvas id="ink"></canvas>
+      <span class="hint hidden" id="hint"></span>
+      <div id="controls">
+        <button id="muteBtn" class="tool" title="Mute / unmute the game">&#128266;</button>
+        <input id="vol" type="range" min="0" max="1" step="0.05" value="1" title="Game volume">
+        <button id="chatBtn" class="tool" title="Show / hide the chat">&#128172;</button>
+      </div>
       <button id="unmute" class="hidden">&#128266; Click to turn on game sound</button>
     </div>
     <aside id="chat">
@@ -98,10 +101,6 @@
         <button type="submit">Send</button>
       </form>
     </aside>
-    </div>
-    <div id="controls">
-      <button id="read" disabled>Waiting for dialogue&hellip;</button>
-      <div id="emotes" class="hidden"></div>
     </div>
     <ul id="players"></ul>
   </section>
@@ -200,7 +199,7 @@ async function onOffer(offer) {
 function playVideo() {
   const v = $("video");
   v.volume = parseFloat($("vol").value);
-  v.muted = false;
+  v.muted = muted;
   v.play().then(() => $("unmute").classList.add("hidden")).catch(() => {
     // Some browsers only allow sound after a click.
     v.muted = true;
@@ -213,10 +212,9 @@ function setLive(on) {
   live = on;
   $("video").classList.toggle("hidden", !on);
   $("frame").classList.toggle("hidden", on);
-  $("volume").classList.toggle("hidden", !on);
-  if (on) { $("screen").classList.remove("hidden"); $("hint").textContent = "Live - click to ping the host's screen"; }
-  else $("hint").textContent = "Click to ping the host's screen";
+  if (on) $("screen").classList.remove("hidden");
   updateFrames();
+  placeOverlays();
   if (state) render();
 }
 
@@ -251,14 +249,38 @@ function loadFrame() {
     .catch(() => setTimeout(loadFrame, 2000));
 }
 
+// --- keep overlays on the game picture's corners --------------------------------
+function placeOverlays() {
+  const el = live ? $("video") : $("frame");
+  const sr = $("screen").getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
+  let gl = 0, gt = 0, gb = 0;
+  if (w && h && r.width && r.height) {
+    const scale = Math.min(r.width / w, r.height / h);
+    const cw = w * scale, ch = h * scale;
+    gl = r.left - sr.left + (r.width - cw) / 2;
+    gt = r.top - sr.top + (r.height - ch) / 2;
+    gb = sr.bottom - (r.top + (r.height - ch) / 2 + ch);
+  }
+  const st = $("screen").style;
+  st.setProperty("--gl", Math.max(0, gl) + "px");
+  st.setProperty("--gt", Math.max(0, gt) + "px");
+  st.setProperty("--gb", Math.max(0, gb) + "px");
+}
+new ResizeObserver(placeOverlays).observe($("screen"));
+$("video").addEventListener("resize", placeOverlays);
+$("video").addEventListener("loadedmetadata", placeOverlays);
+$("frame").addEventListener("load", placeOverlays);
+
 // --- pings & emotes ---------------------------------------------------------
 function myColor() {
   const me = state && state.players.find((p) => p.id === myId);
   return (me && me.color) || "#7c6cff";
 }
 
-function picturePosition(ev) {
-  // Where on the game picture the click landed (0..1), ignoring letterbox bars.
+function picturePosition(ev, clamp) {
+  // Where on the game picture the pointer is (0..1), ignoring letterbox bars.
   const el = live ? $("video") : $("frame");
   const r = el.getBoundingClientRect();
   const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
@@ -266,14 +288,15 @@ function picturePosition(ev) {
   const scale = Math.min(r.width / w, r.height / h);
   const cw = w * scale, ch = h * scale;
   const left = r.left + (r.width - cw) / 2, top = r.top + (r.height - ch) / 2;
-  const x = (ev.clientX - left) / cw, y = (ev.clientY - top) / ch;
+  let x = (ev.clientX - left) / cw, y = (ev.clientY - top) / ch;
+  if (clamp) { x = Math.min(1, Math.max(0, x)); y = Math.min(1, Math.max(0, y)); }
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
   const sr = $("screen").getBoundingClientRect();
   return { x, y, px: ev.clientX - sr.left, py: ev.clientY - sr.top };
 }
 
 function ping(ev) {
-  if (ev.target === $("unmute")) return;
+  if (overControls(ev)) return;
   if (!state || !state.pings || !ws || ws.readyState !== 1) return;
   const pos = picturePosition(ev);
   if (!pos) return;
@@ -287,17 +310,111 @@ function ping(ev) {
   setTimeout(() => dot.remove(), 700);
 }
 
-function renderEmotes() {
-  const box = $("emotes");
-  if (box.childElementCount || !state.emotes) return;
-  for (const e of state.emotes) {
-    const b = document.createElement("button");
-    b.textContent = e;
-    b.title = "Send " + e + " to the host's screen";
-    b.onclick = () => ws && ws.readyState === 1 && ws.send(JSON.stringify({ type: "emote", emoji: e }));
-    box.appendChild(b);
-  }
+// --- drawing: click and drag on the picture ----------------------------------------
+const DRAG_PX = 6, INK_LIFE = 3000, SEND_EVERY = 40;
+let pen = null;            // the stroke being drawn right now
+const inkStrokes = [];     // local preview: {color, pts: [{x, y}] (0..1), doneAt}
+
+function overControls(ev) {
+  return ev.target === $("unmute") || $("controls").contains(ev.target);
 }
+
+function sendInk(done) {
+  if (!pen || !ws || ws.readyState !== 1) return;
+  if (pen.pending.length || done) {
+    ws.send(JSON.stringify({ type: "draw", id: pen.id, points: pen.pending.map((p) => [p.x, p.y]), done }));
+    pen.pending = [];
+  }
+  pen.lastSend = performance.now();
+}
+
+$("screen").addEventListener("pointerdown", (ev) => {
+  if (ev.button !== 0 || overControls(ev) || !state || !state.pings) return;
+  const pos = picturePosition(ev);
+  if (!pos) return;
+  pen = { id: Math.random().toString(36).slice(2, 10), startX: ev.clientX, startY: ev.clientY,
+          drawing: false, pending: [pos], lastSend: 0, local: { color: myColor(), pts: [pos], doneAt: 0 } };
+  $("screen").setPointerCapture(ev.pointerId);
+});
+
+$("screen").addEventListener("pointermove", (ev) => {
+  if (!pen) return;
+  if (!pen.drawing) {
+    if (Math.hypot(ev.clientX - pen.startX, ev.clientY - pen.startY) < DRAG_PX) return;
+    pen.drawing = true;
+    inkStrokes.push(pen.local);
+    drawInk();
+  }
+  const pos = picturePosition(ev, true);
+  if (!pos) return;
+  pen.pending.push(pos);
+  pen.local.pts.push(pos);
+  if (pen.pending.length >= 60 || performance.now() - pen.lastSend > SEND_EVERY) sendInk(false);
+});
+
+function endPen(ev) {
+  if (!pen) return;
+  const p = pen;
+  if (p.drawing) {
+    sendInk(true);
+    p.local.doneAt = performance.now();
+  } else if (ev.type === "pointerup") {
+    ping(ev);  // a click without dragging is a ping
+  }
+  pen = null;
+}
+$("screen").addEventListener("pointerup", endPen);
+$("screen").addEventListener("pointercancel", endPen);
+
+let inkFrame = 0;
+function drawInk() {
+  const canvas = $("ink");
+  const sr = $("screen").getBoundingClientRect();
+  if (canvas.width !== Math.round(sr.width) || canvas.height !== Math.round(sr.height)) {
+    canvas.width = Math.round(sr.width);
+    canvas.height = Math.round(sr.height);
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const el = live ? $("video") : $("frame");
+  const r = el.getBoundingClientRect();
+  const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
+  const now = performance.now();
+  for (let i = inkStrokes.length - 1; i >= 0; i--) {
+    if (inkStrokes[i].doneAt && now - inkStrokes[i].doneAt > INK_LIFE) inkStrokes.splice(i, 1);
+  }
+  if (w && h) {
+    const scale = Math.min(r.width / w, r.height / h);
+    const ox = r.left - sr.left + (r.width - w * scale) / 2, oy = r.top - sr.top + (r.height - h * scale) / 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(3, (h * scale) / 160);
+    for (const st of inkStrokes) {
+      const left = st.doneAt ? INK_LIFE - (now - st.doneAt) : INK_LIFE;
+      ctx.globalAlpha = Math.min(1, left / 500);  // fade out in the last half second
+      ctx.strokeStyle = st.color;
+      ctx.beginPath();
+      st.pts.forEach((pt, i) => {
+        const X = ox + pt.x * w * scale, Y = oy + pt.y * h * scale;
+        if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y);
+      });
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  cancelAnimationFrame(inkFrame);
+  if (inkStrokes.length) inkFrame = requestAnimationFrame(drawInk);
+}
+
+// --- sound / chat controls: only when the cursor is near them -------------------------
+document.addEventListener("pointermove", (ev) => {
+  const c = $("controls");
+  const r = c.getBoundingClientRect();
+  const dx = Math.max(r.left - ev.clientX, 0, ev.clientX - r.right);
+  const dy = Math.max(r.top - ev.clientY, 0, ev.clientY - r.bottom);
+  c.classList.toggle("near", !pen && Math.hypot(dx, dy) < 90);
+});
+document.addEventListener("pointerleave", () => $("controls").classList.remove("near"));
 
 // --- chat ----------------------------------------------------------------------
 function addChat(m) {
@@ -336,20 +453,17 @@ $("chatForm").addEventListener("submit", (e) => {
 // --- reading -----------------------------------------------------------------
 function render() {
   const msg = state.message;
-  $("emotes").classList.toggle("hidden", !state.pings);
-  $("chat").classList.toggle("hidden", state.chat === false);
-  $("hint").classList.toggle("hidden", !state.pings);
-  renderEmotes();
+  applyChatVisibility();
   updateFrames();
 
   const me = state.players.find((p) => p.id === myId);
   const iRead = !!(me && me.read);
-  const btn = $("read");
-  btn.disabled = !msg || iRead || state.advancing;
-  btn.classList.toggle("done", !!msg && iRead);
-  btn.innerHTML = !msg ? "Waiting for dialogue&hellip;"
-    : iRead ? "Read ✓<small>waiting for the others</small>"
-    : "Read<small>or press Space</small>";
+  // The corner hint doubles as the reading prompt: Space / Z / Enter marks the line as read.
+  const hint = $("hint");
+  hint.classList.toggle("need", !!msg && !iRead);
+  hint.classList.toggle("done", !!msg && iRead);
+  hint.textContent = msg ? (iRead ? "✓ Read" : "Space / Z = Read") : "";
+  hint.classList.toggle("hidden", !hint.textContent);
 
   $("players").replaceChildren(...state.players.map((p) => {
     const li = document.createElement("li");
@@ -360,17 +474,42 @@ function render() {
     return li;
   }));
 
-  const counted = state.blocking ? state.players : state.players.filter((p) => !p.host);
-  const waiting = counted.filter((p) => !p.read).map((p) => p.name);
-  $("status").textContent = !msg ? (live ? "Live. Read the dialogue, then press Read." : "Connected. Waiting for the video...")
-    : state.advancing || !waiting.length ? "Everyone read - next line coming"
-    : `Waiting for: ${waiting.join(", ")}`;
+  $("status").textContent = "";
 }
 
 function sendRead() {
-  if (!state || !state.message || $("read").disabled) return;
+  if (!state || !state.message || state.advancing || !ws || ws.readyState !== 1) return;
+  const me = state.players.find((p) => p.id === myId);
+  if (me && me.read) return;
   ws.send(JSON.stringify({ type: "read", msgId: state.message.id }));
 }
+
+// --- toolbar: mute and chat toggles (remembered) --------------------------------
+let muted = false, chatHidden = false;
+try {
+  muted = localStorage.getItem("rpgmt-muted") === "1";
+  chatHidden = localStorage.getItem("rpgmt-chat-hidden") === "1";
+} catch (e) {}
+
+function applyMute() {
+  $("video").muted = muted;
+  $("muteBtn").textContent = muted ? "\u{1F507}" : "\u{1F50A}";
+  $("muteBtn").classList.toggle("off", muted);
+  try { localStorage.setItem("rpgmt-muted", muted ? "1" : "0"); } catch (e) {}
+}
+
+function applyChatVisibility() {
+  const allowed = !state || state.chat !== false;  // the host can turn chat off for everyone
+  $("chat").classList.toggle("hidden", !allowed || chatHidden);
+  $("chatBtn").classList.toggle("hidden", !allowed);
+  $("chatBtn").classList.toggle("off", chatHidden);
+  try { localStorage.setItem("rpgmt-chat-hidden", chatHidden ? "1" : "0"); } catch (e) {}
+}
+
+$("muteBtn").onclick = () => { muted = !muted; applyMute(); if (!muted) playVideo(); };
+$("chatBtn").onclick = () => { chatHidden = !chatHidden; applyChatVisibility(); requestAnimationFrame(placeOverlays); };
+applyMute();
+applyChatVisibility();
 
 function join() {
   myCode = $("code").value.trim().toUpperCase();
@@ -391,17 +530,16 @@ function join() {
 $("joinBtn").onclick = join;
 $("name").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
 $("code").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
-$("read").onclick = sendRead;
-$("screen").addEventListener("click", ping);
 $("unmute").onclick = () => playVideo();
 $("vol").addEventListener("input", () => {
   $("video").volume = parseFloat($("vol").value);
+  if (muted && parseFloat($("vol").value) > 0) { muted = false; applyMute(); }
   try { localStorage.setItem("rpgmt-volume", $("vol").value); } catch (e) {}
 });
 document.addEventListener("keydown", (e) => {
   const el = document.activeElement;
   const typing = el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text");
-  if ((e.key === " " || e.key === "Enter") && !typing) {
+  if ((e.key === " " || e.key === "Enter" || e.key === "z" || e.key === "Z") && !typing) {
     e.preventDefault();
     sendRead();
   }

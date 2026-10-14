@@ -39,6 +39,8 @@ PING_LIFE = 2.5      # seconds a ping stays on screen
 EMOTE_LIFE = 2.2
 CHAT_LIFE = 12.0     # seconds a chat message stays on the host's screen
 CHAT_LINES = 5
+STROKE_LIFE = 3.0      # seconds a drawing stays after the viewer lets go of the mouse
+STROKE_STALE = 15.0    # a drawing that never got finished (viewer left) disappears after this
 STACK_DIST = 0.05    # pings this close (fraction of the game screen) stack into one counter
 FRAME_MS = 33
 
@@ -52,6 +54,7 @@ class PingLayer:
         self.emotes = []   # dicts: emoji, x (0..1), born
         self.chat = []     # dicts: name, color, text, born
         self.chat_enabled = True
+        self.strokes = {}  # (player id, stroke id) -> dict: name, color, points [(x, y)], done_at, at
         self.boxes = []    # on-screen rects of what's drawn, so OCR can ignore them
         self._images = {}  # emoji -> PhotoImage
         self.win = tk.Toplevel(root)
@@ -77,6 +80,19 @@ class PingLayer:
                 p["names"].append(name)
                 return
         self.pings.append({"x": x, "y": y, "names": [name], "color": color, "count": 1, "born": now})
+
+    def add_stroke(self, pid, name, color, stroke_id, points, done):
+        now = time.monotonic()
+        key = (pid, stroke_id)
+        st = self.strokes.get(key)
+        if st is None:
+            if len(self.strokes) > 40:  # someone spamming lines: drop the oldest
+                self.strokes.pop(next(iter(self.strokes)))
+            st = self.strokes[key] = {"name": name, "color": color, "points": [], "done_at": None, "at": now}
+        st["points"].extend(points)
+        st["at"] = now
+        if done:
+            st["done_at"] = now
 
     def add_chat(self, name, color, text):
         self.chat = (self.chat + [{"name": name, "color": color, "text": text, "born": time.monotonic()}])[-CHAT_LINES:]
@@ -117,10 +133,11 @@ class PingLayer:
         self.pings = [p for p in self.pings if now - p["born"] < PING_LIFE]
         self.emotes = [e for e in self.emotes if now - e["born"] < EMOTE_LIFE]
         self.chat = [m for m in self.chat if now - m["born"] < CHAT_LIFE]
+        self.strokes = {k: v for k, v in self.strokes.items() if not stroke_expired(v, now)}
         chat = self.chat if self.chat_enabled else []
         hwnd = self.get_hwnd()
         rect = winutil.client_rect_on_screen(hwnd) if hwnd else None
-        if (not self.pings and not self.emotes and not chat) or not rect or not winutil.is_foreground(hwnd):
+        if (not self.pings and not self.emotes and not chat and not self.strokes) or not rect or not winutil.is_foreground(hwnd):
             self.boxes = []
             self.win.withdraw()
             return
@@ -167,6 +184,27 @@ class PingLayer:
             tid = c.create_text(x, y + size / 2 + 4, text=e["name"], anchor="n", fill=e["color"], font=font)
             bx = c.bbox(tid)
             boxes.append((min(x - size / 2, bx[0]), y - size / 2, max(x + size / 2, bx[2]), bx[3]))
+        # Drawings: a line in the viewer's color, their name at the start.
+        line_w = max(3, h // 160)
+        for st in list(self.strokes.values()):
+            pts = [(x * w, y * h) for x, y in st["points"]]
+            if not pts:
+                continue
+            if len(pts) == 1:
+                x, y = pts[0]
+                c.create_oval(x - line_w, y - line_w, x + line_w, y + line_w, fill=st["color"], outline="")
+            else:
+                c.create_line(*[v for pt in pts for v in pt], fill=st["color"], width=line_w,
+                              capstyle="round", joinstyle="round", smooth=True)
+            x0, y0 = pts[0]
+            tid = c.create_text(x0 + 6, y0 - 6, text=st["name"], anchor="sw", fill=st["color"], font=font)
+            bx = c.bbox(tid)
+            rid = c.create_rectangle(bx[0] - 3, bx[1] - 1, bx[2] + 3, bx[3] + 1, fill="#14121f", outline="")
+            c.tag_raise(tid, rid)
+            xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+            boxes.append((min(xs) - line_w, min(min(ys) - line_w, bx[1]), max(max(xs) + line_w, bx[2]),
+                          max(ys) + line_w))
+
         # Chat: newest at the bottom, in the top-left corner (the status bubble is on the right).
         cfont = ("Segoe UI", -max(12, h // 40))
         y = MARGIN
@@ -229,7 +267,13 @@ def _hex(color):
     return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def draw_overlays(img, pings, emotes, status, region):
+def stroke_expired(st, now):
+    if st["done_at"] is not None:
+        return now - st["done_at"] > STROKE_LIFE
+    return now - st["at"] > STROKE_STALE
+
+
+def draw_overlays(img, pings, emotes, status, region, strokes=()):
     """Draw what the overlay windows show onto a picture of the game (for the stream).
 
     Mirrors PingLayer and Overlay, so viewers see the same pings and bubble as the host.
@@ -259,6 +303,20 @@ def draw_overlays(img, pings, emotes, status, region):
         bx = d.textbbox((tx, ty), label, font=font, anchor="lm")
         d.rectangle((bx[0] - 4, bx[1] - 2, bx[2] + 4, bx[3] + 2), fill=dark, outline=color)
         d.text((tx, ty), label, font=font, fill=color, anchor="lm")
+    line_w = max(3, h // 160)
+    for st in strokes:
+        if stroke_expired(st, now) or not st["points"]:
+            continue
+        color = _hex(st["color"])
+        pts = [(x * w, y * h) for x, y in st["points"]]
+        if len(pts) > 1:
+            d.line(pts, fill=color, width=line_w, joint="curve")
+        for x, y in (pts[0], pts[-1]):  # round ends
+            d.ellipse((x - line_w / 2, y - line_w / 2, x + line_w / 2, y + line_w / 2), fill=color)
+        x0, y0 = pts[0]
+        bx = d.textbbox((x0 + 6, y0 - 6), st["name"], font=font, anchor="ls")
+        d.rectangle((bx[0] - 3, bx[1] - 1, bx[2] + 3, bx[3] + 1), fill=dark)
+        d.text((x0 + 6, y0 - 6), st["name"], font=font, fill=color, anchor="ls")
     size = max(32, h // 12)
     for e in emotes:
         age = now - e["born"]
