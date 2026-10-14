@@ -8,3 +8,6 @@ build/
 build_out/
 dist/
 RPGMT.spec
+
+# Generated previews (recreate with tools/icon_concepts.py)
+/assets/

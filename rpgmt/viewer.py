@@ -47,5 +47,6 @@ def run(url):
     from . import __version__
     webview.create_window(f"RPGMT {__version__} - Watching", url, width=1100, height=900, min_size=(480, 480),
                           background_color="#14121f")
-    webview.start(private_mode=False)
+    from .theme import ICON
+    webview.start(private_mode=False, icon=str(ICON))
     os._exit(0)  # window closed: end now, don't wait on background streaming threads

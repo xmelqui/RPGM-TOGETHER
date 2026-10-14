@@ -1,6 +1,9 @@
 """Dark theme shared by the launcher, host window and pop-ups (matches the viewer page)."""
+import pathlib
 import tkinter as tk
 from tkinter import ttk
+
+ICON = pathlib.Path(__file__).parent / "assets" / "rpgmt.ico"
 
 BG = "#14121f"        # window background
 PANEL = "#1f1b33"     # cards
@@ -16,7 +19,16 @@ DANGER = "#ff5c7a"
 FONT = "Segoe UI"
 
 
+def set_icon(root):
+    """The dream-door icon on this window and every pop-up it opens."""
+    try:
+        root.iconbitmap(default=str(ICON))
+    except tk.TclError:
+        pass
+
+
 def apply(root):
+    set_icon(root)
     root.configure(bg=BG)
     style = ttk.Style(root)
     style.theme_use("clam")

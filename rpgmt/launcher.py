@@ -4,7 +4,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from . import __version__, app, viewer, winutil
+from . import __version__, app, theme, viewer, winutil
 
 BG, PANEL, TEXT, MUTED, ACCENT = "#14121f", "#1f1b33", "#f1eefc", "#a59fc4", "#7c6cff"
 
@@ -15,6 +15,7 @@ class Launcher:
         self.choice = None
         settings = app.load_settings()
         root.title("RPGMT")
+        theme.set_icon(root)
         root.configure(bg=BG)
         root.resizable(False, False)
 

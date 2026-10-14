@@ -15,6 +15,7 @@ import uuid
 from aiohttp import WSMsgType, web
 
 WEB_DIR = pathlib.Path(__file__).parent / "web"
+FAVICON = pathlib.Path(__file__).parent / "assets" / "favicon.png"
 HOST_ID = "host"
 MAX_NAME = 24
 PORT = 47800  # fixed so friends can type ip:port (any free port is used if it's taken)
@@ -268,6 +269,9 @@ class Lobby:
                                        "connect-src 'self' ws: wss:; frame-ancestors 'none'",
             "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"})
 
+    async def _favicon(self, request):
+        return web.FileResponse(FAVICON, headers={"Cache-Control": "max-age=86400"})
+
     def _unique_name(self, wanted):
         taken = {p["name"].lower() for p in self.players.values()}
         name, n = wanted, 2
@@ -371,6 +375,7 @@ class Lobby:
             app.router.add_get("/", self._index)
             app.router.add_get("/ws", self._ws)
             app.router.add_get("/frame", self._frame)
+            app.router.add_get("/favicon.png", self._favicon)
             self._runner = web.AppRunner(app, access_log=None)
             self.loop.run_until_complete(self._runner.setup())
             site = web.TCPSite(self._runner, host, port)
