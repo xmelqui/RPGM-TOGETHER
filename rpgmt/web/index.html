@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RPGMT</title>
+<style>
+  :root { --bg:#14121f; --panel:#1f1b33; --border:#5b4f9e; --text:#f1eefc; --muted:#a59fc4;
+          --accent:#7c6cff; --ok:#3ecf8e; --warn:#f2b84b; }
+  * { box-sizing: border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, sans-serif;
+         display:flex; justify-content:center; padding:16px; }
+  main { width:100%; max-width:1100px; display:flex; flex-direction:column; gap:12px; }
+  header { display:flex; align-items:center; gap:12px; }
+  h1 { font-size:16px; margin:0; color:var(--muted); font-weight:600; letter-spacing:.5px; flex:1; }
+  #join { display:flex; gap:8px; flex-wrap:wrap; }
+  input[type=text] { flex:1; min-width:0; padding:12px; border-radius:8px; border:1px solid var(--border);
+          background:var(--panel); color:var(--text); font-size:16px; }
+  button { border:0; border-radius:12px; background:var(--accent); color:#fff; font-weight:700;
+           cursor:pointer; font-family:inherit; }
+  #joinBtn { padding:12px 20px; font-size:16px; }
+  #game { display:flex; flex-direction:column; gap:12px; }
+  #screen { position:relative; border-radius:12px; overflow:hidden; border:2px solid var(--border);
+            background:#000; cursor:crosshair; line-height:0; }
+  #screen img, #screen video { width:100%; height:auto; max-height:70vh; object-fit:contain; display:block;
+                               user-select:none; -webkit-user-drag:none; background:#000; }
+  #screen .hint { position:absolute; left:8px; top:8px; line-height:1.4; font-size:12px; padding:2px 8px;
+                  border-radius:6px; background:rgba(20,18,31,.8); color:var(--muted); pointer-events:none; }
+  #unmute { position:absolute; inset:0; margin:auto; width:max-content; height:max-content; line-height:1.4;
+            padding:12px 20px; font-size:16px; }
+  .ripple { position:absolute; width:36px; height:36px; margin:-18px 0 0 -18px; border-radius:50%;
+            border:3px solid var(--c); pointer-events:none; animation:ripple .6s ease-out forwards; }
+  @keyframes ripple { from { transform:scale(.3); opacity:1; } to { transform:scale(1.6); opacity:0; } }
+  #controls { display:flex; gap:12px; align-items:stretch; flex-wrap:wrap; }
+  #read { flex:2; min-width:220px; min-height:90px; font-size:clamp(26px, 5vw, 40px);
+          transition:background .15s, transform .05s; }
+  #read:active:not(:disabled) { transform:scale(.98); }
+  #read:disabled { cursor:default; background:var(--panel); color:var(--muted); border:2px dashed var(--border); }
+  #read.done { background:var(--ok); color:#0d2b1f; border:0; }
+  #read small { display:block; font-size:14px; font-weight:500; opacity:.8; margin-top:4px; }
+  #emotes { flex:1; min-width:220px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  #emotes button { padding:6px 0; font-size:22px; background:var(--panel); border:1px solid var(--border); }
+  #emotes button:active { transform:scale(.94); }
+  #volume { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:14px; }
+  #volume input { width:110px; accent-color:var(--accent); }
+  #players { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
+  #players li { padding:4px 12px; border-radius:999px; background:var(--panel); border:1px solid var(--border); font-size:14px; }
+  #players li.read { border-color:var(--ok); color:var(--ok); }
+  #players li.wait { border-color:var(--warn); color:var(--warn); }
+  #stage { display:flex; gap:12px; align-items:stretch; flex-wrap:wrap; }
+  #stage #screen { flex:3 1 480px; min-width:0; }
+  #chat { flex:1 1 240px; min-width:220px; max-height:70vh; display:flex; flex-direction:column;
+          background:var(--panel); border:2px solid var(--border); border-radius:12px; overflow:hidden; }
+  #chat h2 { margin:0; padding:8px 12px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--border); }
+  #chatLog { flex:1; min-height:140px; overflow-y:auto; padding:8px 12px; font-size:14px; line-height:1.45;
+             overflow-wrap:anywhere; }
+  #chatLog .msg { margin:0 0 4px; }
+  #chatLog .who { font-weight:700; margin-right:4px; }
+  #chatLog .msg:not(.cont) { margin-top:6px; }
+  #chatLog .cont { margin-top:-2px; padding-left:14px; }
+  #chatLog .empty { color:var(--muted); font-style:italic; }
+  #chatForm { display:flex; gap:6px; padding:8px; border-top:1px solid var(--border); }
+  #chatInput { flex:1; min-width:0; padding:8px 10px; border-radius:8px; border:1px solid var(--border);
+               background:var(--bg); color:var(--text); font-size:14px; font-family:inherit; }
+  #chatForm button { padding:0 12px; font-size:14px; }
+  #status { color:var(--muted); font-size:14px; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>RPGMT Reading Lobby</h1>
+    <label id="volume" class="hidden" title="Game volume">&#128266; <input id="vol" type="range" min="0" max="1" step="0.05" value="1"></label>
+  </header>
+
+  <section id="join">
+    <input id="name" type="text" maxlength="24" placeholder="Your name" autocomplete="nickname">
+    <input id="code" type="text" maxlength="6" placeholder="Lobby code" autocomplete="off"
+           style="flex:0 1 140px; text-transform:uppercase; letter-spacing:2px">
+    <button id="joinBtn">Join</button>
+  </section>
+
+  <section id="game" class="hidden">
+    <div id="stage">
+    <div id="screen" class="hidden">
+      <video id="video" class="hidden" playsinline autoplay></video>
+      <img id="frame" alt="Live view of the game - click to ping">
+      <span class="hint" id="hint">Click to ping the host's screen</span>
+      <button id="unmute" class="hidden">&#128266; Click to turn on game sound</button>
+    </div>
+    <aside id="chat">
+      <h2>Chat</h2>
+      <div id="chatLog"><p class="empty">No messages yet. Say hi!</p></div>
+      <form id="chatForm" autocomplete="off">
+        <input id="chatInput" type="text" maxlength="200" placeholder="Message">
+        <button type="submit">Send</button>
+      </form>
+    </aside>
+    </div>
+    <div id="controls">
+      <button id="read" disabled>Waiting for dialogue&hellip;</button>
+      <div id="emotes" class="hidden"></div>
+    </div>
+    <ul id="players"></ul>
+  </section>
+
+  <div id="status">Connecting&hellip;</div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+let ws = null, myId = null, state = null, myName = "", myCode = "", myToken = "", rejected = false;
+let pc = null, live = false, framesOn = false, retryTimer = null;
+
+$("code").value = params.get("code") || "";
+try {
+  $("name").value = params.get("name") || localStorage.getItem("rpgmt-name") || "";
+  $("vol").value = localStorage.getItem("rpgmt-volume") ?? "1";
+} catch (e) {}
+$("status").textContent = "Enter your name and join.";
+
+// --- lobby connection ----------------------------------------------------
+function connect() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.onopen = () => ws.send(JSON.stringify({ type: "join", name: myName, code: myCode }));
+  ws.onmessage = (ev) => {
+    const data = JSON.parse(ev.data);
+    if (data.type === "join-error") {
+      rejected = true;
+      $("game").classList.add("hidden");
+      $("join").classList.remove("hidden");
+      $("status").textContent = data.error === "full" ? "This lobby is full."
+        : "Wrong lobby code. Check the link or code the host sent you.";
+      return;
+    }
+    if (data.type === "welcome") {
+      myId = data.id;
+      myToken = data.token || "";
+      myName = data.name || myName;
+      $("chatLog").replaceChildren();
+      (data.chat || []).forEach(addChat);
+      if (!(data.chat || []).length) $("chatLog").innerHTML = '<p class="empty">No messages yet. Say hi!</p>';
+      startStream();
+    }
+    if (data.type === "chat") addChat(data);
+    if (data.type === "state") { state = data; render(); }
+    if (data.type === "offer") onOffer(data);
+    if (data.type === "stream-error") streamFailed();
+  };
+  ws.onclose = () => {
+    myId = null;
+    stopStream();
+    if (rejected) return;  // wrong code / full: wait for the person to try again
+    $("status").textContent = "Disconnected - reconnecting...";
+    setTimeout(connect, 2000);
+  };
+}
+
+// --- live video + sound (WebRTC) -------------------------------------------
+function startStream() {
+  clearTimeout(retryTimer);
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "stream-request" }));
+  retryTimer = setTimeout(() => { if (!live) streamFailed(); }, 12000);
+}
+
+function stopStream() {
+  if (pc) { pc.close(); pc = null; }
+  setLive(false);
+}
+
+async function onOffer(offer) {
+  if (pc) pc.close();
+  pc = new RTCPeerConnection({ iceServers: (offer.iceServers || []).map((u) => ({ urls: u })) });
+  const media = new MediaStream();
+  pc.ontrack = (e) => {
+    media.addTrack(e.track);
+    const v = $("video");
+    if (v.srcObject !== media) v.srcObject = media;
+    playVideo();
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "connected") setLive(true);
+    if (pc.connectionState === "failed" || pc.connectionState === "disconnected") streamFailed();
+  };
+  await pc.setRemoteDescription({ type: offer.sdpType, sdp: offer.sdp });
+  await pc.setLocalDescription(await pc.createAnswer());
+  // The host's WebRTC stack doesn't take candidates one by one: wait for all of them.
+  await new Promise((resolve) => {
+    if (pc.iceGatheringState === "complete") return resolve();
+    const done = () => pc.iceGatheringState === "complete" && resolve();
+    pc.addEventListener("icegatheringstatechange", done);
+    setTimeout(resolve, 3000);
+  });
+  ws.send(JSON.stringify({ type: "answer", sdp: pc.localDescription.sdp, sdpType: pc.localDescription.type }));
+}
+
+function playVideo() {
+  const v = $("video");
+  v.volume = parseFloat($("vol").value);
+  v.muted = false;
+  v.play().then(() => $("unmute").classList.add("hidden")).catch(() => {
+    // Some browsers only allow sound after a click.
+    v.muted = true;
+    v.play().catch(() => {});
+    $("unmute").classList.remove("hidden");
+  });
+}
+
+function setLive(on) {
+  live = on;
+  $("video").classList.toggle("hidden", !on);
+  $("frame").classList.toggle("hidden", on);
+  $("volume").classList.toggle("hidden", !on);
+  if (on) { $("screen").classList.remove("hidden"); $("hint").textContent = "Live - click to ping the host's screen"; }
+  else $("hint").textContent = "Click to ping the host's screen";
+  updateFrames();
+  if (state) render();
+}
+
+function streamFailed() {
+  stopStream();
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(startStream, 8000); // keep trying; still pictures meanwhile
+}
+
+// --- still pictures (when video can't connect) ----------------------------
+function updateFrames() {
+  const want = !!(state && state.pings) && !live;
+  if (want === framesOn) return;
+  framesOn = want;
+  if (want) loadFrame();
+}
+
+function loadFrame() {
+  if (!framesOn) return;
+  const img = $("frame");
+  fetch("/frame?token=" + encodeURIComponent(myToken) + "&t=" + Date.now(), { cache: "no-store" })
+    .then((r) => (r.status === 200 ? r.blob() : null))
+    .then((blob) => {
+      if (blob && framesOn) {
+        const old = img.src;
+        img.src = URL.createObjectURL(blob);
+        if (old.startsWith("blob:")) URL.revokeObjectURL(old);
+        $("screen").classList.remove("hidden");
+      }
+      setTimeout(loadFrame, blob ? 300 : 1500);
+    })
+    .catch(() => setTimeout(loadFrame, 2000));
+}
+
+// --- pings & emotes ---------------------------------------------------------
+function myColor() {
+  const me = state && state.players.find((p) => p.id === myId);
+  return (me && me.color) || "#7c6cff";
+}
+
+function picturePosition(ev) {
+  // Where on the game picture the click landed (0..1), ignoring letterbox bars.
+  const el = live ? $("video") : $("frame");
+  const r = el.getBoundingClientRect();
+  const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
+  if (!w || !h) return null;
+  const scale = Math.min(r.width / w, r.height / h);
+  const cw = w * scale, ch = h * scale;
+  const left = r.left + (r.width - cw) / 2, top = r.top + (r.height - ch) / 2;
+  const x = (ev.clientX - left) / cw, y = (ev.clientY - top) / ch;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+  const sr = $("screen").getBoundingClientRect();
+  return { x, y, px: ev.clientX - sr.left, py: ev.clientY - sr.top };
+}
+
+function ping(ev) {
+  if (ev.target === $("unmute")) return;
+  if (!state || !state.pings || !ws || ws.readyState !== 1) return;
+  const pos = picturePosition(ev);
+  if (!pos) return;
+  ws.send(JSON.stringify({ type: "ping", x: pos.x, y: pos.y }));
+  const dot = document.createElement("span");
+  dot.className = "ripple";
+  dot.style.left = pos.px + "px";
+  dot.style.top = pos.py + "px";
+  dot.style.setProperty("--c", myColor());
+  $("screen").appendChild(dot);
+  setTimeout(() => dot.remove(), 700);
+}
+
+function renderEmotes() {
+  const box = $("emotes");
+  if (box.childElementCount || !state.emotes) return;
+  for (const e of state.emotes) {
+    const b = document.createElement("button");
+    b.textContent = e;
+    b.title = "Send " + e + " to the host's screen";
+    b.onclick = () => ws && ws.readyState === 1 && ws.send(JSON.stringify({ type: "emote", emoji: e }));
+    box.appendChild(b);
+  }
+}
+
+// --- chat ----------------------------------------------------------------------
+function addChat(m) {
+  const log = $("chatLog");
+  const empty = log.querySelector(".empty");
+  if (empty) empty.remove();
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+  const p = document.createElement("p");
+  const last = log.lastElementChild;
+  if (last && last.dataset.who === m.name) {
+    // Same person again: no repeated name, just the next line under their last one.
+    p.className = "msg cont";
+    p.textContent = m.text;
+  } else {
+    p.className = "msg";
+    const who = document.createElement("span");
+    who.className = "who";
+    who.style.color = m.color;
+    who.textContent = (m.host ? "★ " : "") + m.name + ":";
+    p.append(who, document.createTextNode(m.text));
+  }
+  p.dataset.who = m.name;
+  log.appendChild(p);
+  while (log.childElementCount > 200) log.firstChild.remove();
+  if (atBottom) log.scrollTop = log.scrollHeight;  // don't yank people reading older messages
+}
+
+$("chatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("chatInput").value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ type: "chat", text }));
+  $("chatInput").value = "";
+});
+
+// --- reading -----------------------------------------------------------------
+function render() {
+  const msg = state.message;
+  $("emotes").classList.toggle("hidden", !state.pings);
+  $("chat").classList.toggle("hidden", state.chat === false);
+  $("hint").classList.toggle("hidden", !state.pings);
+  renderEmotes();
+  updateFrames();
+
+  const me = state.players.find((p) => p.id === myId);
+  const iRead = !!(me && me.read);
+  const btn = $("read");
+  btn.disabled = !msg || iRead || state.advancing;
+  btn.classList.toggle("done", !!msg && iRead);
+  btn.innerHTML = !msg ? "Waiting for dialogue&hellip;"
+    : iRead ? "Read ✓<small>waiting for the others</small>"
+    : "Read<small>or press Space</small>";
+
+  $("players").replaceChildren(...state.players.map((p) => {
+    const li = document.createElement("li");
+    li.textContent = (p.host ? "★ " : "") + p.name + (p.id === myId ? " (you)" : "");
+    li.style.borderLeft = `4px solid ${p.color}`;
+    // Without "hold the game", the host continues whenever they like: only friends are counted.
+    if (msg && (state.blocking || !p.host)) li.className = p.read ? "read" : "wait";
+    return li;
+  }));
+
+  const counted = state.blocking ? state.players : state.players.filter((p) => !p.host);
+  const waiting = counted.filter((p) => !p.read).map((p) => p.name);
+  $("status").textContent = !msg ? (live ? "Live. Read the dialogue, then press Read." : "Connected. Waiting for the video...")
+    : state.advancing || !waiting.length ? "Everyone read - next line coming"
+    : `Waiting for: ${waiting.join(", ")}`;
+}
+
+function sendRead() {
+  if (!state || !state.message || $("read").disabled) return;
+  ws.send(JSON.stringify({ type: "read", msgId: state.message.id }));
+}
+
+function join() {
+  myCode = $("code").value.trim().toUpperCase();
+  if (!myCode) {
+    $("status").textContent = "Enter the lobby code from the host (it's at the end of their link).";
+    $("code").focus();
+    return;
+  }
+  rejected = false;
+  myName = $("name").value.trim() || "Player";
+  try { localStorage.setItem("rpgmt-name", myName); } catch (e) {}
+  $("join").classList.add("hidden");
+  $("game").classList.remove("hidden");
+  $("status").textContent = "Connecting...";
+  connect();
+}
+
+$("joinBtn").onclick = join;
+$("name").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
+$("code").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
+$("read").onclick = sendRead;
+$("screen").addEventListener("click", ping);
+$("unmute").onclick = () => playVideo();
+$("vol").addEventListener("input", () => {
+  $("video").volume = parseFloat($("vol").value);
+  try { localStorage.setItem("rpgmt-volume", $("vol").value); } catch (e) {}
+});
+document.addEventListener("keydown", (e) => {
+  const el = document.activeElement;
+  const typing = el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text");
+  if ((e.key === " " || e.key === "Enter") && !typing) {
+    e.preventDefault();
+    sendRead();
+  }
+});
+if (params.get("name") && params.get("code")) join(); // opened from the RPGMT app: join right away
+</script>
+</body>
+</html>
