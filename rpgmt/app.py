@@ -55,8 +55,11 @@ class App:
         self.lobby = None
         self.tunnel = None
         self.detector = None
-        self.gate = InputGate(on_host_read=self._host_read, on_pause_hotkey=self._post_toggle_pause)
-        self.gate.start()
+        self.gate = InputGate(on_host_read=self._host_read)
+        if self._blocking:
+            self.gate.start()  # the keyboard/mouse hook is only needed for "hold the game"
+        self._closing = False
+        threading.Thread(target=self._watch_f8, daemon=True).start()
         self._build()
         self.ping_layer = PingLayer(root, self.selected_hwnd)
         self.ping_layer.chat_enabled = self.chat_ingame_var.get() and self.chat_var.get()
@@ -510,8 +513,17 @@ class App:
         if self.lobby:
             self.lobby.call(self.lobby.force_advance)
 
-    def _post_toggle_pause(self):          # hook thread
-        self.events.put(self.toggle_pause)
+    def _watch_f8(self):                   # own thread
+        """F8 (with the game in front) pauses / resumes. Polled rather than hooked:
+        Windows can silently drop a keyboard hook when the app is busy streaming."""
+        was_down = False
+        while not self._closing:
+            down = winutil.key_down(0x77)  # F8
+            hwnd = self.gate.hwnd
+            if down and not was_down and hwnd and winutil.is_foreground(hwnd):
+                self.events.put(self.toggle_pause)
+            was_down = down
+            time.sleep(0.05)
 
     def toggle_pause(self):
         if not self.detector:
@@ -519,8 +531,11 @@ class App:
         self.detector.paused = not self.detector.paused
         if self.detector.paused:
             self.gate.engaged = False
+            self.overlay.flash("\u23f8 Paused  (F8 to resume)", theme.MUTED)
+        else:
+            self.overlay.flash("\u25b6 Resumed", theme.OK)
         self.pause_btn.configure(text="Resume (F8)" if self.detector.paused else "Pause (F8)")
-        self.log("Paused - game input is normal" if self.detector.paused else "Resumed")
+        self.log("Paused - no reading status, game input is normal" if self.detector.paused else "Resumed")
 
     def _apply_clean(self):
         if self.detector:
@@ -528,8 +543,11 @@ class App:
 
     def _apply_blocking(self):
         self._blocking = self.blocking_var.get()
-        if not self._blocking:
-            self.gate.engaged = False  # hand the keys back right away
+        # The keyboard/mouse hook only runs while "hold the game" is on.
+        if self._blocking:
+            self.gate.start()
+        else:
+            self.gate.stop()  # hands the keys back right away
         if self.lobby:
             self.lobby.call(self.lobby.set_blocking, self._blocking)
         self.settings["blocking"] = self._blocking
@@ -662,6 +680,7 @@ class App:
     def on_close(self):
         self.close_lobby()
         wincap.stop_all()
+        self._closing = True
         self.gate.stop()
         self.root.destroy()
 

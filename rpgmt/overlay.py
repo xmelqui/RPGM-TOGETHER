@@ -367,17 +367,24 @@ class Overlay:
         self.label.pack()
         self._styled = False
         self._font_px = None
+        self._flash = None  # (text, color, until): a short note, e.g. "Paused"
         self.win.after(150, self._tick)
 
     def set_state(self, snapshot):
         self.state = snapshot
+
+    def flash(self, text, color, seconds=2.0):
+        """Show a short note in the bubble's place (works even with the bubble turned off)."""
+        self._flash = (text, color, time.monotonic() + seconds)
 
     def _make_click_through(self):
         make_click_through(self.win)
         self._styled = True
 
     def current(self):
-        """(text, color) the bubble shows right now, or None (also used by the stream)."""
+        """(text, color) the bubble shows right now, or None."""
+        if self._flash and time.monotonic() < self._flash[2]:
+            return self._flash[:2]
         return self._text() if self.enabled else None
 
     def _text(self):
@@ -409,7 +416,7 @@ class Overlay:
 
     def _update(self):
         hwnd = self.get_hwnd()
-        text = self._text() if self.enabled else None
+        text = self.current()
         rect = winutil.client_rect_on_screen(hwnd) if hwnd else None
         if not text or not rect or not winutil.is_foreground(hwnd):
             self._hide()

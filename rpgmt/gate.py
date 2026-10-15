@@ -20,7 +20,7 @@ WM_MOUSEWHEEL, WM_QUIT = 0x20A, 0x12
 INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE = 1, 0x2, 0x8
 
 VK_RETURN, VK_SPACE, VK_ESCAPE, VK_INSERT, VK_NUMPAD0 = 0x0D, 0x20, 0x1B, 0x2D, 0x60
-VK_Z, VK_X, VK_C, VK_F8 = 0x5A, 0x58, 0x43, 0x77
+VK_Z, VK_X, VK_C = 0x5A, 0x58, 0x43
 CONFIRM_KEYS = {VK_RETURN, VK_SPACE, VK_Z, VK_C}            # count as the host's Read
 BLOCKED_KEYS = CONFIRM_KEYS | {VK_ESCAPE, VK_X, VK_INSERT, VK_NUMPAD0}  # cancel also advances in MV/MZ
 
@@ -72,9 +72,8 @@ kernel32.GetModuleHandleW.restype = wintypes.HMODULE
 
 
 class InputGate:
-    def __init__(self, on_host_read, on_pause_hotkey):
-        self.on_host_read = on_host_read  # callbacks run on the hook thread: must be fast
-        self.on_pause_hotkey = on_pause_hotkey
+    def __init__(self, on_host_read):
+        self.on_host_read = on_host_read  # runs on the hook thread: must be fast
         self.hwnd = None
         self._engaged = False
         self._down = set()    # blocked keys currently held (swallowed presses)
@@ -85,15 +84,25 @@ class InputGate:
         self._tap_id = 0
 
     # --- hook thread -----------------------------------------------------
+    @property
+    def running(self):
+        return self._thread is not None and self._thread.is_alive()
+
     def start(self):
+        """Install the keyboard/mouse hook (only needed for "hold the game")."""
+        if self.running:
+            return
         ready = threading.Event()
         self._thread = threading.Thread(target=self._run, args=(ready,), daemon=True)
         self._thread.start()
         ready.wait(2)
 
     def stop(self):
-        if self._tid:
+        self.engaged = False
+        if self._tid and self.running:
             user32.PostThreadMessageW(self._tid, WM_QUIT, 0, 0)
+            self._thread.join(1)
+        self._tid = None
 
     def _active(self):
         return self.engaged and self.hwnd and winutil.is_foreground(self.hwnd)
@@ -101,10 +110,6 @@ class InputGate:
     def _kb_proc(self, n_code, w_param, l_param):
         if n_code == 0:
             k = ctypes.cast(l_param, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            if (k.vkCode == VK_F8 and w_param == WM_KEYDOWN and self.hwnd
-                    and winutil.is_foreground(self.hwnd)):
-                self.on_pause_hotkey()
-                return 1
             is_down = w_param in (WM_KEYDOWN, WM_SYSKEYDOWN)
             if not is_down:
                 # Key releases always pass: swallowing one would leave the key

@@ -88,6 +88,15 @@ def window_rect(hwnd):
     return (rc.left, rc.top, rc.right, rc.bottom)
 
 
+user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+user32.GetAsyncKeyState.restype = ctypes.c_short
+
+
+def key_down(vk):
+    """Is this key held right now? Plain polling: nothing for Windows to disconnect."""
+    return bool(user32.GetAsyncKeyState(vk) & 0x8000)
+
+
 def process_id(hwnd):
     pid = wintypes.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
