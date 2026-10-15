@@ -1,3 +1,3 @@
 """RPGMT: reading lobby for RPG Maker games."""
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"

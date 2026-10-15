@@ -7,107 +7,143 @@
 <link rel="icon" type="image/png" href="/favicon.png">
 <style>
   :root { --bg:#14121f; --panel:#1f1b33; --border:#5b4f9e; --text:#f1eefc; --muted:#a59fc4;
-          --accent:#7c6cff; --ok:#3ecf8e; --warn:#f2b84b; }
+          --accent:#7c6cff; --ok:#3ecf8e; --warn:#f2b84b; --glass:rgba(20,18,31,.78); }
   * { box-sizing: border-box; }
   html, body { height:100%; }
-  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, sans-serif;
-         display:flex; justify-content:center; padding:16px; }
-  main { width:100%; max-width:1100px; display:flex; flex-direction:column; gap:12px; }
-  #join { display:flex; gap:8px; flex-wrap:wrap; }
-  input[type=text] { flex:1; min-width:0; padding:12px; border-radius:8px; border:1px solid var(--border);
-          background:var(--panel); color:var(--text); font-size:16px; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, sans-serif; }
   button { border:0; border-radius:12px; background:var(--accent); color:#fff; font-weight:700;
            cursor:pointer; font-family:inherit; }
+  input[type=text] { min-width:0; padding:12px; border-radius:8px; border:1px solid var(--border);
+                     background:var(--panel); color:var(--text); font-size:16px; font-family:inherit; }
+  .hidden { display:none !important; }
+
+  /* --- join form ---------------------------------------------------------- */
+  #join { max-width:560px; margin:15vh auto 0; padding:0 16px; display:flex; gap:8px; flex-wrap:wrap; }
+  #join #name { flex:1; }
+  #join #code { flex:0 1 140px; text-transform:uppercase; letter-spacing:2px; }
   #joinBtn { padding:12px 20px; font-size:16px; }
-  #game { display:flex; flex-direction:column; gap:12px; }
-  #screen { position:relative; border-radius:12px; overflow:hidden; border:2px solid var(--border);
-            background:#000; cursor:crosshair; line-height:0; }
-  #screen img, #screen video { width:100%; height:auto; max-height:70vh; object-fit:contain; display:block;
-                               user-select:none; -webkit-user-drag:none; background:#000; }
-  #screen .hint { position:absolute; left:calc(var(--gl, 0px) + 8px); top:calc(var(--gt, 0px) + 8px); line-height:1.4; font-size:12px; padding:2px 8px;
-                  border-radius:6px; background:rgba(20,18,31,.8); color:var(--muted); pointer-events:none; }
+  #status { max-width:560px; margin:12px auto 0; padding:0 16px; color:var(--muted); font-size:14px; }
+  #status:empty { display:none; }
+  body.ingame #status { position:fixed; top:12px; left:50%; transform:translateX(-50%); margin:0; z-index:5;
+                        padding:4px 12px; border-radius:8px; background:var(--glass); max-width:90vw; }
+
+  /* --- the game fills the window; everything else floats on top of it ------ */
+  #game { position:fixed; inset:0; }
+  #screen { position:absolute; inset:0; background:#000; cursor:crosshair; touch-action:none; overflow:hidden; }
+  #screen img, #screen video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+                               display:block; user-select:none; -webkit-user-drag:none; }
+  #ink { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  /* --gl/--gt/--gr/--gb: distance from the window edges to the game picture (placeOverlays()). */
+  /* Keys, explained once: under the join form, or as a short intro card for the app. */
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:14px; color:var(--muted); }
+  .keys kbd { font:700 12px/1.6 system-ui, sans-serif; color:var(--text); background:var(--panel);
+              border:1px solid var(--border); border-bottom-width:2px; border-radius:6px; padding:0 7px;
+              justify-self:end; white-space:nowrap; }
+  #tips { max-width:560px; margin:18px auto 0; padding:0 16px; }
+  #intro { position:absolute; inset:0; margin:auto; width:max-content; height:max-content; z-index:4;
+           padding:16px 20px; border-radius:14px; background:rgba(20,18,31,.92); border:1px solid var(--border);
+           line-height:1.4; cursor:default; transition:opacity .4s; box-shadow:0 8px 30px rgba(0,0,0,.5); }
+  #intro h3 { margin:0 0 10px; font-size:15px; }
+  #intro p { margin:10px 0 0; font-size:12px; color:var(--muted); text-align:center; }
+  #intro.gone { opacity:0; pointer-events:none; }
   #unmute { position:absolute; inset:0; margin:auto; width:max-content; height:max-content; line-height:1.4;
-            padding:12px 20px; font-size:16px; }
+            padding:12px 20px; font-size:16px; z-index:3; }
   .ripple { position:absolute; width:36px; height:36px; margin:-18px 0 0 -18px; border-radius:50%;
             border:3px solid var(--c); pointer-events:none; animation:ripple .6s ease-out forwards; }
   @keyframes ripple { from { transform:scale(.3); opacity:1; } to { transform:scale(1.6); opacity:0; } }
-  #players { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
-  #players li { padding:4px 12px; border-radius:999px; background:var(--panel); border:1px solid var(--border); font-size:14px; }
-  #players li.read { border-color:var(--ok); color:var(--ok); }
-  #players li.wait { border-color:var(--warn); color:var(--warn); }
-  #stage { display:flex; gap:12px; align-items:stretch; flex-wrap:wrap; }
-  #stage #screen { flex:3 1 480px; min-width:0; }
-  #chat { flex:1 1 240px; min-width:220px; max-height:70vh; display:flex; flex-direction:column;
-          background:var(--panel); border:2px solid var(--border); border-radius:12px; overflow:hidden; }
-  #chat h2 { margin:0; padding:8px 12px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--border); }
-  #chatLog { flex:1; min-height:140px; overflow-y:auto; padding:8px 12px; font-size:14px; line-height:1.45;
-             overflow-wrap:anywhere; }
-  #chatLog .msg { margin:0 0 4px; }
-  #chatLog .who { font-weight:700; margin-right:4px; }
-  #chatLog .msg:not(.cont) { margin-top:6px; }
-  #chatLog .cont { margin-top:-2px; padding-left:14px; }
-  #chatLog .empty { color:var(--muted); font-style:italic; }
-  #chatForm { display:flex; gap:6px; padding:8px; border-top:1px solid var(--border); }
-  #chatInput { flex:1; min-width:0; padding:8px 10px; border-radius:8px; border:1px solid var(--border);
-               background:var(--bg); color:var(--text); font-size:14px; font-family:inherit; }
-  #chatForm button { padding:0 12px; font-size:14px; }
-  #status { color:var(--muted); font-size:14px; }
-  #status:empty { display:none; }
-  /* Sits in the game picture's bottom-left corner (offsets set by placeOverlays()). */
+
+  /* Sound / chat controls: bottom-left of the game, only when the mouse is near. */
   #controls { position:absolute; left:calc(var(--gl, 0px) + 8px); bottom:calc(var(--gb, 0px) + 8px);
-              display:flex; align-items:center; gap:6px; padding:4px 6px; line-height:normal;
-              border-radius:10px; background:rgba(20,18,31,.78); cursor:default;
+              display:flex; align-items:center; gap:6px; padding:4px 6px; line-height:normal; z-index:2;
+              border-radius:10px; background:var(--glass); cursor:default;
               opacity:0; pointer-events:none; transition:opacity .2s; }
   #controls.near { opacity:1; pointer-events:auto; }
-  #ink { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-  #screen { touch-action:none; }
   #controls .tool { padding:4px 9px; font-size:14px; background:var(--panel); border:1px solid var(--border);
-                   color:var(--text); border-radius:8px; white-space:nowrap; }
+                    color:var(--text); border-radius:8px; white-space:nowrap; }
   #controls .tool.off { color:var(--muted); border-style:dashed; }
   #vol { width:90px; accent-color:var(--accent); }
-  #screen .hint.need { background:var(--accent); color:#fff; font-weight:700; font-size:13px; }
-  #screen .hint.done { background:var(--ok); color:#0d2b1f; font-weight:700; }
-  .hidden { display:none !important; }
+
+  /* Members + chat: bottom-right of the game. Clicks pass through unless the mouse is on it. */
+  #dock { position:absolute; right:calc(var(--gr, 0px) + 8px); bottom:calc(var(--gb, 0px) + 8px); z-index:2;
+          width:min(320px, calc(var(--gw, 100vw) * .42)); max-height:calc(var(--gh, 100vh) * .62);
+          display:flex; flex-direction:column; align-items:flex-end; gap:6px;
+          pointer-events:none; cursor:default; line-height:1.4; }
+  #players { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
+  #players li { display:flex; align-items:center; gap:5px; padding:1px 8px 1px 6px; border-radius:999px;
+                background:var(--glass); font-size:12px; border:1px solid transparent; }
+  #players li .dot { width:8px; height:8px; border-radius:50%; flex:none; }
+  #players li.read { border-color:var(--ok); color:var(--ok); }
+  #players li.wait { border-color:var(--warn); color:var(--warn); }
+  #chatBox { width:100%; display:flex; flex-direction:column; min-height:0; border-radius:10px;
+             transition:background .2s; }
+  #chatLog { min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:flex-end;
+             gap:3px; font-size:13px; overflow-wrap:anywhere; }
+  #chatLog .msg { margin:0; max-width:100%; padding:3px 9px; border-radius:8px; background:var(--glass);
+                  transition:opacity .6s; align-self:flex-end; }
+  #chatLog .msg.cont { margin-top:-1px; }
+  #chatLog .who { font-weight:700; margin-right:5px; }
+  #chatLog .msg.fading { opacity:0; }   /* fades after a while... */
+  #chatLog .msg.old { display:none; }   /* ...then takes no space, so clicks reach the game */
+  #chatForm { display:none; gap:6px; padding:6px; }
+  #chatInput { flex:1; padding:7px 10px; font-size:13px; background:var(--bg); }
+  #chatForm button { padding:0 12px; font-size:13px; border-radius:8px; }
+  /* ...but everything comes back while the mouse is on the chat or you're typing. */
+  #dock.active { pointer-events:auto; }
+  #dock.active #chatBox { background:var(--glass); }
+  #dock.active #chatLog { overflow-y:auto; align-items:stretch; padding:6px 6px 0; }
+  #dock.active #chatLog .msg { display:block; opacity:1; background:transparent; padding:1px 3px; align-self:stretch; }
+  #dock.active #chatForm { display:flex; }
 </style>
 </head>
 <body>
-<main>
 
-  <section id="join">
-    <input id="name" type="text" maxlength="24" placeholder="Your name" autocomplete="nickname">
-    <input id="code" type="text" maxlength="6" placeholder="Lobby code" autocomplete="off"
-           style="flex:0 1 140px; text-transform:uppercase; letter-spacing:2px">
-    <button id="joinBtn">Join</button>
-  </section>
+<section id="join">
+  <input id="name" type="text" maxlength="24" placeholder="Your name" autocomplete="nickname">
+  <input id="code" type="text" maxlength="6" placeholder="Lobby code" autocomplete="off">
+  <button id="joinBtn">Join</button>
+</section>
+<div id="status">Connecting&hellip;</div>
+<div id="tips" class="keys">
+  <kbd>Space / Z</kbd><span>mark the line as read (your name turns green)</span>
+  <kbd>Click</kbd><span>ping a spot on the host's screen</span>
+  <kbd>Drag</kbd><span>draw on the host's screen</span>
+  <kbd>T</kbd><span>chat &middot; Enter sends &middot; Esc closes</span>
+</div>
 
-  <section id="game" class="hidden">
-    <div id="stage">
-    <div id="screen" class="hidden">
-      <video id="video" class="hidden" playsinline autoplay></video>
-      <img id="frame" alt="Live view of the game - click to ping">
-      <canvas id="ink"></canvas>
-      <span class="hint hidden" id="hint"></span>
-      <div id="controls">
-        <button id="muteBtn" class="tool" title="Mute / unmute the game">&#128266;</button>
-        <input id="vol" type="range" min="0" max="1" step="0.05" value="1" title="Game volume">
-        <button id="chatBtn" class="tool" title="Show / hide the chat">&#128172;</button>
+<section id="game" class="hidden">
+  <div id="screen" class="hidden">
+    <video id="video" class="hidden" playsinline autoplay></video>
+    <img id="frame" alt="Live view of the game - click to ping">
+    <canvas id="ink"></canvas>
+    <div id="controls">
+      <button id="muteBtn" class="tool" title="Mute / unmute the game">&#128266;</button>
+      <input id="vol" type="range" min="0" max="1" step="0.05" value="1" title="Game volume">
+      <button id="chatBtn" class="tool" title="Show / hide the chat">&#128172;</button>
+    </div>
+    <div id="dock">
+      <ul id="players"></ul>
+      <div id="chatBox">
+        <div id="chatLog"></div>
+        <form id="chatForm" autocomplete="off">
+          <input id="chatInput" type="text" maxlength="200" placeholder="Message (Enter sends, Esc closes)">
+          <button type="submit">Send</button>
+        </form>
       </div>
-      <button id="unmute" class="hidden">&#128266; Click to turn on game sound</button>
     </div>
-    <aside id="chat">
-      <h2>Chat</h2>
-      <div id="chatLog"><p class="empty">No messages yet. Say hi!</p></div>
-      <form id="chatForm" autocomplete="off">
-        <input id="chatInput" type="text" maxlength="200" placeholder="Message">
-        <button type="submit">Send</button>
-      </form>
-    </aside>
+    <button id="unmute" class="hidden">&#128266; Click to turn on game sound</button>
+    <div id="intro" class="hidden">
+      <h3>Welcome! Quick keys:</h3>
+      <div class="keys">
+        <kbd>Space / Z</kbd><span>mark the line as read (your name turns green)</span>
+        <kbd>Click</kbd><span>ping a spot on the host's screen</span>
+        <kbd>Drag</kbd><span>draw on the host's screen</span>
+        <kbd>T</kbd><span>chat &middot; Enter sends &middot; Esc closes</span>
+      </div>
+      <p>Press any key or click to start</p>
     </div>
-    <ul id="players"></ul>
-  </section>
+  </div>
+</section>
 
-  <div id="status">Connecting&hellip;</div>
-</main>
 <script>
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -130,8 +166,10 @@ function connect() {
     const data = JSON.parse(ev.data);
     if (data.type === "join-error") {
       rejected = true;
+      document.body.classList.remove("ingame");
       $("game").classList.add("hidden");
       $("join").classList.remove("hidden");
+      $("tips").classList.remove("hidden");
       $("status").textContent = data.error === "full" ? "This lobby is full."
         : "Wrong lobby code. Check the link or code the host sent you.";
       return;
@@ -140,12 +178,13 @@ function connect() {
       myId = data.id;
       myToken = data.token || "";
       myName = data.name || myName;
+      $("status").textContent = "";
+      if (autoJoined && !introShown) { introShown = true; showIntro(); }
       $("chatLog").replaceChildren();
-      (data.chat || []).forEach(addChat);
-      if (!(data.chat || []).length) $("chatLog").innerHTML = '<p class="empty">No messages yet. Say hi!</p>';
+      (data.chat || []).forEach((m) => addChat(m, true));
       startStream();
     }
-    if (data.type === "chat") addChat(data);
+    if (data.type === "chat") addChat(data, false);
     if (data.type === "state") { state = data; render(); }
     if (data.type === "offer") onOffer(data);
     if (data.type === "stream-error") streamFailed();
@@ -250,31 +289,34 @@ function loadFrame() {
     .catch(() => setTimeout(loadFrame, 2000));
 }
 
-// --- keep overlays on the game picture's corners --------------------------------
-function placeOverlays() {
+// --- keep overlays on the game picture (not on the black bars around it) ------------
+function gameRect() {
   const el = live ? $("video") : $("frame");
-  const sr = $("screen").getBoundingClientRect();
   const r = el.getBoundingClientRect();
   const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
-  let gl = 0, gt = 0, gb = 0;
-  if (w && h && r.width && r.height) {
-    const scale = Math.min(r.width / w, r.height / h);
-    const cw = w * scale, ch = h * scale;
-    gl = r.left - sr.left + (r.width - cw) / 2;
-    gt = r.top - sr.top + (r.height - ch) / 2;
-    gb = sr.bottom - (r.top + (r.height - ch) / 2 + ch);
-  }
+  if (!w || !h || !r.width || !r.height) return null;
+  const scale = Math.min(r.width / w, r.height / h);
+  const cw = w * scale, ch = h * scale;
+  return { left: r.left + (r.width - cw) / 2, top: r.top + (r.height - ch) / 2, width: cw, height: ch, w, h };
+}
+
+function placeOverlays() {
+  const sr = $("screen").getBoundingClientRect();
+  const g = gameRect() || { left: sr.left, top: sr.top, width: sr.width, height: sr.height };
   const st = $("screen").style;
-  st.setProperty("--gl", Math.max(0, gl) + "px");
-  st.setProperty("--gt", Math.max(0, gt) + "px");
-  st.setProperty("--gb", Math.max(0, gb) + "px");
+  st.setProperty("--gl", Math.max(0, g.left - sr.left) + "px");
+  st.setProperty("--gt", Math.max(0, g.top - sr.top) + "px");
+  st.setProperty("--gr", Math.max(0, sr.right - (g.left + g.width)) + "px");
+  st.setProperty("--gb", Math.max(0, sr.bottom - (g.top + g.height)) + "px");
+  st.setProperty("--gw", g.width + "px");
+  st.setProperty("--gh", g.height + "px");
 }
 new ResizeObserver(placeOverlays).observe($("screen"));
 $("video").addEventListener("resize", placeOverlays);
 $("video").addEventListener("loadedmetadata", placeOverlays);
 $("frame").addEventListener("load", placeOverlays);
 
-// --- pings & emotes ---------------------------------------------------------
+// --- pings -------------------------------------------------------------------
 function myColor() {
   const me = state && state.players.find((p) => p.id === myId);
   return (me && me.color) || "#7c6cff";
@@ -282,14 +324,9 @@ function myColor() {
 
 function picturePosition(ev, clamp) {
   // Where on the game picture the pointer is (0..1), ignoring letterbox bars.
-  const el = live ? $("video") : $("frame");
-  const r = el.getBoundingClientRect();
-  const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
-  if (!w || !h) return null;
-  const scale = Math.min(r.width / w, r.height / h);
-  const cw = w * scale, ch = h * scale;
-  const left = r.left + (r.width - cw) / 2, top = r.top + (r.height - ch) / 2;
-  let x = (ev.clientX - left) / cw, y = (ev.clientY - top) / ch;
+  const g = gameRect();
+  if (!g) return null;
+  let x = (ev.clientX - g.left) / g.width, y = (ev.clientY - g.top) / g.height;
   if (clamp) { x = Math.min(1, Math.max(0, x)); y = Math.min(1, Math.max(0, y)); }
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
   const sr = $("screen").getBoundingClientRect();
@@ -297,7 +334,7 @@ function picturePosition(ev, clamp) {
 }
 
 function ping(ev) {
-  if (overControls(ev)) return;
+  if (overUi(ev)) return;
   if (!state || !state.pings || !ws || ws.readyState !== 1) return;
   const pos = picturePosition(ev);
   if (!pos) return;
@@ -316,8 +353,8 @@ const DRAG_PX = 6, INK_LIFE = 3000, SEND_EVERY = 40;
 let pen = null;            // the stroke being drawn right now
 const inkStrokes = [];     // local preview: {color, pts: [{x, y}] (0..1), doneAt}
 
-function overControls(ev) {
-  return ev.target === $("unmute") || $("controls").contains(ev.target);
+function overUi(ev) {
+  return ev.target === $("unmute") || $("controls").contains(ev.target) || $("dock").contains(ev.target);
 }
 
 function sendInk(done) {
@@ -330,7 +367,8 @@ function sendInk(done) {
 }
 
 $("screen").addEventListener("pointerdown", (ev) => {
-  if (ev.button !== 0 || overControls(ev) || !state || !state.pings) return;
+  if (ev.button !== 0 || overUi(ev) || !state || !state.pings) return;
+  if (document.activeElement === $("chatInput")) $("chatInput").blur();
   const pos = picturePosition(ev);
   if (!pos) return;
   pen = { id: Math.random().toString(36).slice(2, 10), startX: ev.clientX, startY: ev.clientY,
@@ -377,26 +415,23 @@ function drawInk() {
   }
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const el = live ? $("video") : $("frame");
-  const r = el.getBoundingClientRect();
-  const w = live ? el.videoWidth : el.naturalWidth, h = live ? el.videoHeight : el.naturalHeight;
+  const g = gameRect();
   const now = performance.now();
   for (let i = inkStrokes.length - 1; i >= 0; i--) {
     if (inkStrokes[i].doneAt && now - inkStrokes[i].doneAt > INK_LIFE) inkStrokes.splice(i, 1);
   }
-  if (w && h) {
-    const scale = Math.min(r.width / w, r.height / h);
-    const ox = r.left - sr.left + (r.width - w * scale) / 2, oy = r.top - sr.top + (r.height - h * scale) / 2;
+  if (g) {
+    const ox = g.left - sr.left, oy = g.top - sr.top;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.lineWidth = Math.max(3, (h * scale) / 160);
+    ctx.lineWidth = Math.max(3, g.height / 160);
     for (const st of inkStrokes) {
       const left = st.doneAt ? INK_LIFE - (now - st.doneAt) : INK_LIFE;
       ctx.globalAlpha = Math.min(1, left / 500);  // fade out in the last half second
       ctx.strokeStyle = st.color;
       ctx.beginPath();
       st.pts.forEach((pt, i) => {
-        const X = ox + pt.x * w * scale, Y = oy + pt.y * h * scale;
+        const X = ox + pt.x * g.width, Y = oy + pt.y * g.height;
         if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y);
       });
       ctx.stroke();
@@ -407,21 +442,38 @@ function drawInk() {
   if (inkStrokes.length) inkFrame = requestAnimationFrame(drawInk);
 }
 
-// --- sound / chat controls: only when the cursor is near them -------------------------
-document.addEventListener("pointermove", (ev) => {
-  const c = $("controls");
-  const r = c.getBoundingClientRect();
+// --- controls and chat wake up when the mouse comes near ---------------------------------
+function distanceTo(el, ev) {
+  const r = el.getBoundingClientRect();
   const dx = Math.max(r.left - ev.clientX, 0, ev.clientX - r.right);
   const dy = Math.max(r.top - ev.clientY, 0, ev.clientY - r.bottom);
-  c.classList.toggle("near", !pen && Math.hypot(dx, dy) < 90);
+  return Math.hypot(dx, dy);
+}
+let pointerNearDock = false, chatOpen = false;
+document.addEventListener("pointermove", (ev) => {
+  $("controls").classList.toggle("near", !pen && distanceTo($("controls"), ev) < 90);
+  pointerNearDock = !pen && !chatOff() && distanceTo($("dock"), ev) < 16;
+  updateDock();
 });
-document.addEventListener("pointerleave", () => $("controls").classList.remove("near"));
+document.addEventListener("pointerleave", () => {
+  $("controls").classList.remove("near");
+  pointerNearDock = false;
+  updateDock();
+});
+
+function updateDock() {
+  const typing = document.activeElement === $("chatInput");
+  const active = !chatOff() && (pointerNearDock || typing || chatOpen);
+  const was = $("dock").classList.contains("active");
+  $("dock").classList.toggle("active", active);
+  if (active && !was) $("chatLog").scrollTop = $("chatLog").scrollHeight;
+}
 
 // --- chat ----------------------------------------------------------------------
-function addChat(m) {
+const CHAT_FADE = 12000;  // ms a new message stays visible over the game
+
+function addChat(m, history) {
   const log = $("chatLog");
-  const empty = log.querySelector(".empty");
-  if (empty) empty.remove();
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
   const p = document.createElement("p");
   const last = log.lastElementChild;
@@ -438,18 +490,49 @@ function addChat(m) {
     p.append(who, document.createTextNode(m.text));
   }
   p.dataset.who = m.name;
+  p.dataset.at = history ? 0 : Date.now();  // old history starts hidden
+  if (history) p.classList.add("fading", "old");
   log.appendChild(p);
   while (log.childElementCount > 200) log.firstChild.remove();
-  if (atBottom) log.scrollTop = log.scrollHeight;  // don't yank people reading older messages
+  if (atBottom || !$("dock").classList.contains("active")) log.scrollTop = log.scrollHeight;
 }
+
+setInterval(() => {
+  const now = Date.now();
+  for (const p of $("chatLog").children) {
+    const age = now - Number(p.dataset.at);
+    if (age > CHAT_FADE) p.classList.add("fading");
+    if (age > CHAT_FADE + 700) p.classList.add("old");
+  }
+}, 250);
 
 $("chatForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = $("chatInput").value.trim();
-  if (!text || !ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify({ type: "chat", text }));
+  if (text && ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "chat", text }));
   $("chatInput").value = "";
+  closeChat();  // back to the game: Space / Z read again
 });
+$("chatInput").addEventListener("blur", () => { chatOpen = false; updateDock(); });
+$("chatInput").addEventListener("focus", updateDock);
+$("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { $("chatInput").value = ""; closeChat(); }
+});
+
+function closeChat() {
+  // Don't rely on the blur event alone: it doesn't fire when the window isn't focused.
+  chatOpen = false;
+  $("chatInput").blur();
+  updateDock();
+  setTimeout(updateDock, 0);
+}
+
+function openChat() {
+  if (chatOff()) return;
+  chatOpen = true;   // show the chat first: a hidden box can't take the cursor
+  updateDock();
+  $("chatInput").focus();
+}
 
 // --- reading -----------------------------------------------------------------
 function render() {
@@ -457,25 +540,17 @@ function render() {
   applyChatVisibility();
   updateFrames();
 
-  const me = state.players.find((p) => p.id === myId);
-  const iRead = !!(me && me.read);
-  // The corner hint doubles as the reading prompt: Space / Z / Enter marks the line as read.
-  const hint = $("hint");
-  hint.classList.toggle("need", !!msg && !iRead);
-  hint.classList.toggle("done", !!msg && iRead);
-  hint.textContent = msg ? (iRead ? "✓ Read" : "Space / Z = Read") : "";
-  hint.classList.toggle("hidden", !hint.textContent);
 
   $("players").replaceChildren(...state.players.map((p) => {
     const li = document.createElement("li");
-    li.textContent = (p.host ? "★ " : "") + p.name + (p.id === myId ? " (you)" : "");
-    li.style.borderLeft = `4px solid ${p.color}`;
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = p.color;
+    li.append(dot, document.createTextNode((p.host ? "★ " : "") + p.name + (p.id === myId ? " (you)" : "")));
     // Without "hold the game", the host continues whenever they like: only friends are counted.
     if (msg && (state.blocking || !p.host)) li.className = p.read ? "read" : "wait";
     return li;
   }));
-
-  $("status").textContent = "";
 }
 
 function sendRead() {
@@ -485,12 +560,16 @@ function sendRead() {
   ws.send(JSON.stringify({ type: "read", msgId: state.message.id }));
 }
 
-// --- toolbar: mute and chat toggles (remembered) --------------------------------
+// --- toggles: mute and chat (remembered) --------------------------------------------
 let muted = false, chatHidden = false;
 try {
   muted = localStorage.getItem("rpgmt-muted") === "1";
   chatHidden = localStorage.getItem("rpgmt-chat-hidden") === "1";
 } catch (e) {}
+
+function chatOff() {
+  return chatHidden || (state && state.chat === false);  // the host can turn chat off for everyone
+}
 
 function applyMute() {
   $("video").muted = muted;
@@ -500,17 +579,38 @@ function applyMute() {
 }
 
 function applyChatVisibility() {
-  const allowed = !state || state.chat !== false;  // the host can turn chat off for everyone
-  $("chat").classList.toggle("hidden", !allowed || chatHidden);
+  const allowed = !state || state.chat !== false;
+  // Hiding the chat keeps the member list.
+  $("chatBox").classList.toggle("hidden", chatOff());
   $("chatBtn").classList.toggle("hidden", !allowed);
   $("chatBtn").classList.toggle("off", chatHidden);
+  if (chatOff() && document.activeElement === $("chatInput")) $("chatInput").blur();
+  updateDock();
   try { localStorage.setItem("rpgmt-chat-hidden", chatHidden ? "1" : "0"); } catch (e) {}
 }
 
 $("muteBtn").onclick = () => { muted = !muted; applyMute(); if (!muted) playVideo(); };
-$("chatBtn").onclick = () => { chatHidden = !chatHidden; applyChatVisibility(); requestAnimationFrame(placeOverlays); };
+$("chatBtn").onclick = () => { chatHidden = !chatHidden; applyChatVisibility(); };
 applyMute();
 applyChatVisibility();
+
+// --- intro card: the app joins straight away, so explain the keys once, briefly ----------
+let introTimer = 0;
+function showIntro() {
+  const intro = $("intro");
+  intro.classList.remove("hidden", "gone");
+  clearTimeout(introTimer);
+  introTimer = setTimeout(hideIntro, 7000);
+}
+function hideIntro() {
+  const intro = $("intro");
+  if (intro.classList.contains("hidden") || intro.classList.contains("gone")) return;
+  intro.classList.add("gone");
+  setTimeout(() => intro.classList.add("hidden"), 450);
+}
+// Any key or click dismisses it (the key still does its normal job).
+document.addEventListener("keydown", hideIntro, true);
+document.addEventListener("pointerdown", hideIntro, true);
 
 function join() {
   myCode = $("code").value.trim().toUpperCase();
@@ -523,7 +623,9 @@ function join() {
   myName = $("name").value.trim() || "Player";
   try { localStorage.setItem("rpgmt-name", myName); } catch (e) {}
   $("join").classList.add("hidden");
+  $("tips").classList.add("hidden");
   $("game").classList.remove("hidden");
+  document.body.classList.add("ingame");
   $("status").textContent = "Connecting...";
   connect();
 }
@@ -540,12 +642,19 @@ $("vol").addEventListener("input", () => {
 document.addEventListener("keydown", (e) => {
   const el = document.activeElement;
   const typing = el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && el.type === "text");
-  if ((e.key === " " || e.key === "Enter" || e.key === "z" || e.key === "Z") && !typing) {
+  if (typing || !document.body.classList.contains("ingame")) return;
+  if (e.key === " " || e.key === "Enter" || e.key === "z" || e.key === "Z") {
     e.preventDefault();
     sendRead();
+  } else if (e.key === "t" || e.key === "T") {
+    e.preventDefault();  // don't type the "t" into the box
+    openChat();
   }
 });
-if (params.get("name") && params.get("code")) join(); // opened from the RPGMT app: join right away
+// Opened from the RPGMT app (name and code in the link): join right away, with the intro card.
+const autoJoined = !!(params.get("name") && params.get("code"));
+let introShown = false;
+if (autoJoined) join();
 </script>
 </body>
 </html>

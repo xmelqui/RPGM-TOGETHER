@@ -431,8 +431,10 @@ class App:
                 self.log("Game-only capture isn't available: viewers see this part of your SCREEN, "
                          "so keep other windows and notifications off the game")
             return img  # read from the screen: the overlay windows are already in it
+        # No status bubble in the stream: viewers see who has read on their member list,
+        # and the bubble would cover their chat. The host still sees it on screen.
         return draw_overlays(img, list(self.ping_layer.pings), list(self.ping_layer.emotes),
-                             self.overlay.current(), self._region_now, list(self.ping_layer.strokes.values()))
+                             None, self._region_now, list(self.ping_layer.strokes.values()))
 
     def _got_url(self, url):
         self.link_var.set(f"{url}/?code={self.lobby.code}" if self.lobby else url)
