@@ -1,5 +1,7 @@
 """Invite links: https://xmelqui.github.io/RPGM-TOGETHER/join/#<host>/<CODE>/<host name>
 
+<host> is a VPN/LAN "ip:port" or a Cloudflare tunnel name without ".trycloudflare.com".
+
 The part after "#" never leaves the friend's computer (browsers don't send it to
 GitHub). The join page turns it into "Open in RPGMT" (an rpgmt:// link) and
 "Watch in your browser" buttons. Only a VPN/LAN IP address or a Cloudflare tunnel
@@ -15,11 +17,13 @@ SCHEME = "rpgmt"
 
 _IPV4_PORT = re.compile(r"^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}:\d{2,5}$")
 _TUNNEL = re.compile(r"^[a-z0-9-]{1,63}\.trycloudflare\.com$")
+_TUNNEL_NAME = re.compile(r"^[a-z0-9-]{1,63}$")  # short form: ".trycloudflare.com" left out
 _CODE = re.compile(r"^[A-HJ-NP-Z2-9]{6}$")
 
 
 def make(host, code, name=""):
     """Invite link for a lobby at host ("26.1.2.3:47800" or "x.trycloudflare.com")."""
+    host = host.removesuffix(".trycloudflare.com")  # shorter and less scary-looking
     parts = [host, code] + ([name] if name else [])
     return JOIN_PAGE + "#" + "/".join(urllib.parse.quote(p, safe=":.") for p in parts)
 
@@ -30,6 +34,8 @@ def _check(host, code):
         return None
     if _IPV4_PORT.match(host) and 0 < int(host.rsplit(":", 1)[1]) < 65536:
         return "http", host, code
+    if _TUNNEL_NAME.match(host):
+        host += ".trycloudflare.com"
     if _TUNNEL.match(host):
         return "https", host, code
     return None

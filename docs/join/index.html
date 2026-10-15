@@ -55,17 +55,21 @@
 <script>
 // Invite format (everything after "#", which browsers never send to GitHub):
 //   #<host>:<port>/<CODE>[/<host name>]          lobby on a VPN or local network (plain http)
-//   #<name>.trycloudflare.com/<CODE>[/<host name>]   lobby behind RPGMT's Cloudflare link (https)
+//   #<name>/<CODE>[/<host name>]                  lobby behind RPGMT's Cloudflare link: <name>.trycloudflare.com (https)
+//   (older invites spell out <name>.trycloudflare.com; both work)
 // Only those two kinds of address are accepted, so this page can't be used to send
 // people to some other website.
 const IPV4_PORT = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}:\d{2,5}$/;
 const TUNNEL = /^[a-z0-9-]{1,63}\.trycloudflare\.com$/;
+const TUNNEL_NAME = /^[a-z0-9-]{1,63}$/;
 const CODE = /^[A-HJ-NP-Z2-9]{6}$/;
 
 function parseInvite(hash) {
   const parts = decodeURIComponent(hash.replace(/^#/, "")).split("/");
   if (parts.length < 2) return null;
-  const host = parts[0].toLowerCase(), code = parts[1].toUpperCase();
+  let host = parts[0].toLowerCase();
+  if (TUNNEL_NAME.test(host)) host += ".trycloudflare.com";
+  const code = parts[1].toUpperCase();
   const name = (parts[2] || "").replace(/[^\p{L}\p{N} ._\-]/gu, "").trim().slice(0, 24);
   if (!CODE.test(code)) return null;
   if (IPV4_PORT.test(host)) {
