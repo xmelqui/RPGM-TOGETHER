@@ -1,8 +1,9 @@
 """Watches the game screen with OCR and reports when a dialogue line is showing.
 
-The whole game screen is read at once so menus can be told apart from dialogue:
-dialogue is text inside the message box area with (almost) nothing elsewhere,
-while item/equip/save menus put text all over the screen.
+Any readable text on the game screen counts as a line; the host presses F8 to
+pause RPGMT while in menus. (An earlier "message box area" setting caused more
+odd behaviour than it prevented.) A couple of noise filters stay: number-heavy
+lines (HP, FPS counters) and lone single words (menu commands) are ignored.
 
 A line is reported once its text is stable (the typewriter effect has
 finished). Small OCR jitter between frames is tolerated via fuzzy matching.
@@ -18,10 +19,8 @@ from .ocr import Ocr, capture_window
 
 INTERVAL = 0.1           # seconds between OCR samples (one sample takes ~30-50 ms)
 STABLE_TIME = 0.35       # text unchanged this long = typewriter finished, announce the line
-CLEAR_TIME = 0.5         # message box empty this long = dialogue over (bridges gaps between boxes)
+CLEAR_TIME = 0.5         # no text this long = dialogue over (bridges gaps between boxes)
 SAME_TEXT_REPEAT = 1.5   # after an advance, identical text this long = a new (repeated) line
-NAME_BAND = 0.12         # text this close above the message box is the speaker's name box
-MENU_LINES = 3           # this many text lines outside the message box = a menu, not dialogue
 
 
 def normalize(text):
@@ -49,23 +48,13 @@ def is_real_text(line):
     return digits / len(alnum) < 0.3
 
 
-def classify(lines, region):
-    """Split OCR lines into (message box text, number of text lines elsewhere)."""
-    top, bottom = region[1], region[3]
-    inside, outside = [], 0
-    for text, line_top, line_bottom in lines:
-        if not is_real_text(text):
-            continue
-        center = (line_top + line_bottom) / 2
-        if top <= center <= bottom:
-            inside.append(text)
-        elif center < top - NAME_BAND or center > bottom:
-            outside += 1
-    # Dialogue has sentences; command lists ("Fight / Escape", "Attack / Skill") are
-    # one word per line.
-    if not any(len(text.split()) >= 2 for text in inside):
-        return "", outside
-    return normalize(" ".join(inside)), outside
+def screen_text(lines):
+    """The readable text on screen, or "" if there's none worth calling a line."""
+    kept = [text for text, _, _ in lines if is_real_text(text)]
+    # A real line has at least one sentence-like row; lone words ("Attack", "Item") don't count.
+    if not any(len(text.split()) >= 2 for text in kept):
+        return ""
+    return normalize(" ".join(kept))
 
 
 def similar(a, b, threshold=0.85):
@@ -83,7 +72,6 @@ class Detector:
         self.on_clear = on_clear        # no more dialogue: stop holding keys
         self.on_error = on_error or (lambda e: None)
         self.hwnd = None
-        self.region = (0.0, 0.65, 1.0, 1.0)
         self.min_chars = 4
         self.language = None
         self.paused = False
@@ -91,7 +79,6 @@ class Detector:
         self.get_masks = lambda: []  # screen rects of our own windows, blanked before OCR
         self.get_ping_boxes = lambda: []  # screen rects of viewers' pings/emotes
         self.last_reason = ""
-        self.occluded = False
         self._stop = threading.Event()
         self._thread = None
         self._current = None
@@ -114,34 +101,20 @@ class Detector:
         return sum(c.isalnum() for c in text) >= self.min_chars
 
     def _sample(self, ocr):
-        """Dialogue text currently on screen, or "" (nothing, or a menu).
-
-        Sets self.occluded when a viewer's ping covers the message box: the text
-        may then be partly hidden, so it's only good for "is there dialogue"."""
+        """Text currently on the game screen, or ""."""
         shot = capture_window(self.hwnd)
         if shot is None:
             return ""
         img, left, top = shot
-        if left is None:
-            # The game window's own picture: our overlays and other windows aren't in it.
-            self.occluded = False
-            text, outside = classify(ocr.read_lines(img), self.region)
-            return self._verdict(text, outside)
-        pings = self.get_ping_boxes()
-        w, h = img.size
-        box = (left + w * self.region[0], top + h * self.region[1],
-               left + w * self.region[2], top + h * self.region[3])
-        self.occluded = any(l < box[2] and r > box[0] and t < box[3] and b > box[1] for l, t, r, b in pings)
-        draw = ImageDraw.Draw(img)
-        for (l, t, r, b) in list(self.get_masks()) + list(pings):
-            draw.rectangle((l - left, t - top, r - left, b - top), fill="black")
-        text, outside = classify(ocr.read_lines(img), self.region)
-        return self._verdict(text, outside)
+        if left is not None:
+            # Read from the screen (game-only capture unavailable): blank out our own
+            # windows and viewers' pings so they aren't read as game text.
+            draw = ImageDraw.Draw(img)
+            for (l, t, r, b) in list(self.get_masks()) + list(self.get_ping_boxes()):
+                draw.rectangle((l - left, t - top, r - left, b - top), fill="black")
+        return self._verdict(screen_text(ocr.read_lines(img)))
 
-    def _verdict(self, text, outside):
-        if outside >= MENU_LINES:
-            self.last_reason = f"menu ({outside} text lines outside the message box)"
-            return ""
+    def _verdict(self, text):
         if not self._meaningful(text):
             self.last_reason = "no dialogue"
             return ""
@@ -168,13 +141,6 @@ class Detector:
                 self.on_error(e)
                 continue
             now = time.monotonic()
-            if self.occluded:
-                # A ping hides part of the box: still start holding keys if dialogue shows
-                # up, but don't announce or end lines on a partly hidden frame.
-                if text and not self._active:
-                    self._active = True
-                    self.on_dialogue()
-                continue
             if last_text is None or not same_frame(text, last_text):
                 last_text, last_change = text, now
 

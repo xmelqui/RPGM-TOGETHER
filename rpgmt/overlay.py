@@ -282,7 +282,7 @@ def stroke_expired(st, now):
     return now - st["at"] > STROKE_STALE
 
 
-def draw_overlays(img, pings, emotes, status, region, strokes=()):
+def draw_overlays(img, pings, emotes, status, strokes=()):
     """Draw what the overlay windows show onto a picture of the game (for the stream).
 
     Mirrors PingLayer and Overlay, so viewers see the same pings and bubble as the host.
@@ -340,9 +340,8 @@ def draw_overlays(img, pings, emotes, status, region, strokes=()):
         bfont = _font(max(12, min(22, h // 34)))
         bx = d.textbbox((0, 0), text, font=bfont)
         bw, bh = bx[2] - bx[0] + 24, bx[3] - bx[1] + 12
-        at_top = (1 - region[3]) <= region[1]
         x0 = w - bw - MARGIN
-        y0 = MARGIN if at_top else h - bh - MARGIN
+        y0 = MARGIN
         d.rectangle((x0, y0, x0 + bw, y0 + bh), fill=dark, outline=(91, 79, 158), width=2)
         d.text((x0 + 12, y0 + 6 - bx[1]), text, font=bfont, fill=_hex(color))
     img.alpha_composite(layer)
@@ -350,8 +349,8 @@ def draw_overlays(img, pings, emotes, status, region, strokes=()):
 
 
 class Overlay:
-    def __init__(self, root, get_hwnd, get_region):
-        self.get_hwnd, self.get_region = get_hwnd, get_region
+    def __init__(self, root, get_hwnd):
+        self.get_hwnd = get_hwnd
         self.enabled = True
         self.state = None
         self.bbox = None  # on-screen rect while visible, so OCR can blank it out
@@ -433,11 +432,8 @@ class Overlay:
             self._make_click_through()
         self.win.update_idletasks()
         ow, oh = self.win.winfo_reqwidth(), self.win.winfo_reqheight()
-        # Put the bubble on the edge farthest from the message box.
-        _, region_top, _, region_bottom = self.get_region()
-        at_top = (1 - region_bottom) <= region_top
-        x = max(l, r - ow - MARGIN)
-        y = t + MARGIN if at_top else b - oh - MARGIN
+        x = max(l, r - ow - MARGIN)  # top-right corner of the game
+        y = t + MARGIN
         self.win.geometry(f"+{x}+{y}")
         self.win.lift()
         self.bbox = (x, y, x + ow, y + oh)

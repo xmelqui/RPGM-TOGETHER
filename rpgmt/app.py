@@ -12,7 +12,7 @@ from tkinter import messagebox, ttk
 from PIL import ImageTk
 
 from . import __version__, netinfo, ocr, theme, wincap, winutil
-from .detector import Detector
+from .detector import Detector, screen_text
 from .gate import InputGate
 from .lobby import HOST_ID, Lobby
 from .overlay import Overlay, PingLayer, draw_overlays
@@ -21,7 +21,7 @@ from .tunnel import APP_DIR, Tunnel
 
 SETTINGS = APP_DIR / "settings.json"
 LOG_FILE = APP_DIR / "host.log"
-DEFAULTS = {"name": "Host", "region": [0, 65, 100, 100], "language": "", "network": "lan", "overlay": True, "clean": True, "pings": True, "blocking": False, "chat": True, "chat_ingame": True}
+DEFAULTS = {"name": "Host", "language": "", "network": "lan", "overlay": True, "clean": True, "pings": True, "blocking": False, "chat": True, "chat_ingame": True}
 FRAME_INTERVAL = 0.3   # seconds between game pictures sent to the players' page
 FRAME_WIDTH = 640
 
@@ -51,7 +51,6 @@ class App:
         self._prev_state = None
         self._warned_screen_capture = False
         self._blocking = bool(self.settings["blocking"])  # read from worker threads
-        self._region_now = tuple(x / 100 for x in DEFAULTS["region"])
         self.lobby = None
         self.tunnel = None
         self.detector = None
@@ -63,7 +62,7 @@ class App:
         self._build()
         self.ping_layer = PingLayer(root, self.selected_hwnd)
         self.ping_layer.chat_enabled = self.chat_ingame_var.get() and self.chat_var.get()
-        self.overlay = Overlay(root, self.selected_hwnd, self.region)
+        self.overlay = Overlay(root, self.selected_hwnd)
         self.overlay.enabled = self.overlay_var.get()
         self.refresh_windows()
         self.root.after(100, self._pump)
@@ -113,21 +112,11 @@ class App:
         self.win_combo.bind("<<ComboboxSelected>>", lambda e: self._apply_window())
         ttk.Button(game, text="↻", width=3, command=self.refresh_windows).grid(row=1, column=2, padx=(6, 0))
 
-        ttk.Label(game, text="Message box area (% of the game screen)", style="Muted.TLabel").grid(
-            row=2, column=0, columnspan=3, sticky="w", pady=(10, 2))
-        reg = ttk.Frame(game, style="Card.TFrame")
-        reg.grid(row=3, column=0, columnspan=3, sticky="w")
-        self.region_vars = []
-        for i, label in enumerate(("Left", "Top", "Right", "Bottom")):
-            ttk.Label(reg, text=label, style="Card.TLabel").grid(row=0, column=i * 2, padx=(0 if i == 0 else 10, 4))
-            v = tk.DoubleVar(value=self.settings["region"][i])
-            ttk.Spinbox(reg, from_=0, to=100, increment=0.5, width=5, format="%.1f", textvariable=v,
-                        command=self._apply_region).grid(row=0, column=i * 2 + 1)
-            self.region_vars.append(v)
+        ttk.Label(game, text="Any text on the game screen counts as a line. Press F8 in menus.",
+                  style="Muted.TLabel").grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 2))
         btns = ttk.Frame(game, style="Card.TFrame")
-        btns.grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
-        ttk.Button(btns, text="Select area...", command=self.select_area).pack(side="left")
-        ttk.Button(btns, text="Test", command=self.test_capture).pack(side="left", padx=6)
+        btns.grid(row=4, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        ttk.Button(btns, text="Test text reading", command=self.test_capture).pack(side="left")
         self.clean_var = tk.BooleanVar(value=self.settings["clean"])
         ttk.Checkbutton(game, text="Clean up text (white text on busy backgrounds)", variable=self.clean_var,
                         command=self._apply_clean).grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 0))
@@ -234,7 +223,6 @@ class App:
                 self.events.get_nowait()()
         except queue.Empty:
             pass
-        self._region_now = self.region()  # for background threads: Tk widgets are UI-thread only
         # Our own windows must never be read as game text (refreshed here, on the UI thread).
         masks = [self.overlay.bbox] if self.overlay.bbox else []
         if self.root.state() == "normal":
@@ -282,45 +270,11 @@ class App:
                 self.lobby.streamer.set_game_process(hwnd)  # game restarted: follow its sound
         self.root.after(1000, self._watch_game)
 
-    def region(self):
-        try:
-            l, t, r, b = (max(0, min(100, v.get())) / 100 for v in self.region_vars)
-        except tk.TclError:
-            return tuple(x / 100 for x in DEFAULTS["region"])
-        return (l, t, max(r, l + 0.05), max(b, t + 0.05))
-
     def _apply_window(self):
         hwnd = self.selected_hwnd()
         self.gate.hwnd = hwnd
         if self.detector:
             self.detector.hwnd = hwnd
-
-    def _apply_region(self):
-        if self.detector:
-            self.detector.region = self.region()
-
-    def set_region(self, region):
-        for var, value in zip(self.region_vars, region):
-            var.set(round(value * 100, 1))
-        self._apply_region()
-
-    def select_area(self):
-        hwnd = self.selected_hwnd()
-        if not hwnd:
-            messagebox.showinfo("RPGMT", "Pick the game window first.")
-            return
-        # Hide ourselves so we don't end up in the screenshot of the game.
-        self.root.withdraw()
-        self.root.after(350, lambda: self._open_selector(hwnd))
-
-    def _open_selector(self, hwnd):
-        img = ocr.capture_region(hwnd, (0, 0, 1, 1))
-        self.root.deiconify()
-        if img is None:
-            messagebox.showwarning("RPGMT", "Couldn't capture that window (is it minimized?).")
-            return
-        AreaSelector(self.root, img, self.region(), ocr.Ocr(self.lang_var.get() or None, self.clean_var.get()),
-                     self.set_region)
 
     def test_capture(self):
         hwnd = self.selected_hwnd()
@@ -331,14 +285,16 @@ class App:
         self.root.after(350, lambda: self._show_test(hwnd))
 
     def _show_test(self, hwnd):
-        img = ocr.capture_region(hwnd, self.region())
+        img = ocr.capture_region(hwnd, (0, 0, 1, 1))
         self.root.deiconify()
         if img is None:
             messagebox.showwarning("RPGMT", "Couldn't capture that window (is it minimized?).")
             return
-        text = ocr.Ocr(self.lang_var.get() or None, self.clean_var.get()).read(img)
+        found = screen_text(ocr.Ocr(self.lang_var.get() or None, self.clean_var.get()).read_lines(img))
+        text = (f"Counts as a line:  {found}" if found
+                else "No line found (no sentence-like text on screen right now).")
         top = tk.Toplevel(self.root, bg=theme.BG)
-        top.title("Capture test")
+        top.title("Text reading test")
         preview = img.copy()
         preview.thumbnail((800, 400))
         photo = ImageTk.PhotoImage(preview)
@@ -360,7 +316,6 @@ class App:
             messagebox.showinfo("RPGMT", "Pick the game window first.")
             return
         self.settings.update(name=self.name_var.get().strip() or "Host",
-                             region=[v.get() for v in self.region_vars],
                              language=self.lang_var.get(), network=self.network_var.get(),
                              overlay=self.overlay_var.get(), clean=self.clean_var.get(),
                              pings=self.pings_var.get(), blocking=self.blocking_var.get(),
@@ -393,7 +348,6 @@ class App:
             on_error=lambda e: self.log(f"OCR error: {e}"),
         )
         self.detector.hwnd = hwnd
-        self.detector.region = self.region()
         self.detector.language = self.lang_var.get() or None
         self.detector.clean = self.clean_var.get()
         self.detector.get_masks = lambda: self._masks
@@ -437,7 +391,7 @@ class App:
         # No status bubble in the stream: viewers see who has read on their member list,
         # and the bubble would cover their chat. The host still sees it on screen.
         return draw_overlays(img, list(self.ping_layer.pings), list(self.ping_layer.emotes),
-                             None, self._region_now, list(self.ping_layer.strokes.values()))
+                             None, list(self.ping_layer.strokes.values()))
 
     def _got_url(self, url):
         self.link_var.set(f"{url}/?code={self.lobby.code}" if self.lobby else url)
@@ -683,79 +637,6 @@ class App:
         self._closing = True
         self.gate.stop()
         self.root.destroy()
-
-
-class AreaSelector:
-    """Shows a screenshot of the game; drag a box over the message window."""
-
-    MAX_W, MAX_H = 1100, 700
-
-    def __init__(self, parent, img, region, reader, on_save):
-        self.img, self.on_save = img, on_save
-        self.ocr = reader
-        self.scale = min(self.MAX_W / img.width, self.MAX_H / img.height, 1.0)
-        w, h = int(img.width * self.scale), int(img.height * self.scale)
-
-        self.top = top = tk.Toplevel(parent, bg=theme.BG)
-        top.title(f"Select message box area - game is {img.width}x{img.height}")
-        top.transient(parent)
-        top.grab_set()
-        ttk.Label(top, text="Open a dialogue in the game first. Then drag a box around the text "
-                            "area of the message window.").pack(padx=8, pady=(8, 4), anchor="w")
-
-        self.photo = ImageTk.PhotoImage(img.resize((w, h)))
-        self.canvas = tk.Canvas(top, width=w, height=h, cursor="crosshair", highlightthickness=0)
-        self.canvas.pack(padx=8)
-        self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
-        l, t, r, b = region
-        self.rect = self.canvas.create_rectangle(l * w, t * h, r * w, b * h,
-                                                 outline="#ff3b6b", width=2, dash=(6, 3))
-        self.region = region
-        self.start = None
-        self.canvas.bind("<ButtonPress-1>", self._press)
-        self.canvas.bind("<B1-Motion>", self._drag)
-        self.canvas.bind("<ButtonRelease-1>", self._release)
-
-        self.result = ttk.Label(top, text="", wraplength=w, justify="left")
-        self.result.pack(padx=8, pady=6, anchor="w")
-        bar = ttk.Frame(top)
-        bar.pack(fill="x", padx=8, pady=(0, 8))
-        ttk.Button(bar, text="Save", command=self._save).pack(side="right")
-        ttk.Button(bar, text="Cancel", command=top.destroy).pack(side="right", padx=6)
-        self._preview()
-
-    def _clamp(self, x, y):
-        return (max(0, min(int(self.canvas["width"]), x)), max(0, min(int(self.canvas["height"]), y)))
-
-    def _press(self, e):
-        self.start = self._clamp(e.x, e.y)
-        self.canvas.coords(self.rect, *self.start, *self.start)
-
-    def _drag(self, e):
-        if self.start:
-            self.canvas.coords(self.rect, *self.start, *self._clamp(e.x, e.y))
-
-    def _release(self, e):
-        if not self.start:
-            return
-        (x0, y0), (x1, y1) = self.start, self._clamp(e.x, e.y)
-        self.start = None
-        if abs(x1 - x0) < 5 or abs(y1 - y0) < 5:
-            return  # a click, not a drag
-        w, h = int(self.canvas["width"]), int(self.canvas["height"])
-        self.region = (min(x0, x1) / w, min(y0, y1) / h, max(x0, x1) / w, max(y0, y1) / h)
-        self._preview()
-
-    def _preview(self):
-        l, t, r, b = self.region
-        W, H = self.img.size
-        crop = self.img.crop((int(l * W), int(t * H), int(r * W), int(b * H)))
-        text = self.ocr.read(crop) if crop.width >= 8 and crop.height >= 8 else ""
-        self.result.configure(text="OCR reads: " + (" ".join(text.split()) or "(no text found)"))
-
-    def _save(self):
-        self.on_save(self.region)
-        self.top.destroy()
 
 
 def main():
