@@ -5,8 +5,8 @@
 <h1 align="center">RPGMT</h1>
 
 <p align="center">
-  <b>Read RPG Maker games together.</b><br>
-  One person plays; friends watch live with sound, mark each line as read, ping, draw and chat.
+  <b>Play RPG Maker games together.</b><br>
+  One person plays; friends watch live with sound, ping, draw and chat, and follow the story line by line.
 </p>
 
 <p align="center">
@@ -23,15 +23,15 @@
 ## What it does
 
 - **Watch together:** friends see the host's game live, with **only the game's sound**: no Discord voices, no music player.
-- **Read together:** friends press **Space / Z** when they've read a line. The host sees who's still reading ("Waiting for Ana (1/2)" → "✓ Everyone read"), and can optionally **hold the game until everyone has read**.
-- **Point things out:** **click** to ping a spot on the host's screen, **drag** to draw on it. Everyone sees it.
+- **React on the screen:** **click** to ping a spot on the host's game, **drag** to draw on it. Everyone sees it.
 - **Chat** that floats over the game and fades away when nobody's talking.
+- **Nobody gets left behind:** friends press **Space / Z** when they've read a line, and a small badge on the host's screen shows how many have (`1/2` → `✓ 2/2`). The host can even **hold the game until everyone has read**.
 - **Any RPG Maker game:** 2000, 2003, XP, VX, VX Ace, MV, MZ. Nothing is installed into the game: RPGMT reads the dialogue from the screen with Windows' built-in text recognition.
 - **No server needed:** play over Hamachi, Radmin VPN, ZeroTier, Tailscale or your home network, or share a free Cloudflare link.
 
 <p align="center">
   <img src="docs/host.png" width="49%" alt="The host window: game, connection and options on the left; current line, players and chat on the right">
-  <img src="docs/host_screen.png" width="49%" alt="The host's game with the reading status, a friend's ping and drawing on top">
+  <img src="docs/host_screen.png" width="49%" alt="The host's game with the read-count badge, a friend's ping and drawing on top">
 </p>
 
 ## Download
@@ -52,7 +52,7 @@ Grab **`RPGMT-x.y.z.zip`** from the [latest release](https://github.com/xmelqui/
 
 The first time, **Windows Firewall** asks whether RPGMT may use the network. Allow it, and tick *Public* too if you use Hamachi or Radmin, or friends can't connect.
 
-**Options:** let friends ping and draw · show the reading status over your game · enable chat · show chat over your game · hold the game until everyone has read (your confirm keys wait until everyone pressed Read, then RPGMT presses Enter for you).
+**Options:** let friends ping and draw · show the read-count badge over your game · enable chat · show chat over your game · hold the game until everyone has read (your confirm keys wait until everyone pressed Read, then RPGMT presses Enter for you).
 
 ## Joining
 

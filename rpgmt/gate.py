@@ -1,4 +1,5 @@
-"""Holds back the host's "advance text" input while the lobby is still reading.
+""""Hold the game until everyone has read" mode: holds back the host's "advance text"
+input while friends are still on the current line.
 
 Works for every RPG Maker version because it acts at the OS input level: while
 engaged, confirm/cancel keys and mouse clicks aimed at the game are swallowed.

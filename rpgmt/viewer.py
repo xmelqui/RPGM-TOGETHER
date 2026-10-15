@@ -1,4 +1,4 @@
-"""The window friends watch in: the host's live game with sound, Read button, pings."""
+"""The window friends watch in: the host's live game with sound, chat, pings and drawing."""
 import os
 import urllib.error
 import urllib.parse

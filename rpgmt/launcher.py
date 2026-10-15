@@ -35,12 +35,12 @@ class Launcher:
         frm = ttk.Frame(root, padding=24)
         frm.pack(fill="both", expand=True)
         ttk.Label(frm, text="RPGMT", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(frm, text=f"Read RPG Maker games together  ·  v{__version__}", style="Sub.TLabel").pack(anchor="w", pady=(0, 16))
+        ttk.Label(frm, text=f"Play RPG Maker games together  ·  v{__version__}", style="Sub.TLabel").pack(anchor="w", pady=(0, 16))
 
         host = ttk.Frame(frm, style="Card.TFrame", padding=16)
         host.pack(fill="x", pady=(0, 12))
         ttk.Label(host, text="Host a game", style="Card.TLabel").pack(anchor="w")
-        ttk.Label(host, text="You play; friends watch your game live and press Read.",
+        ttk.Label(host, text="You play; friends watch live with sound, ping, draw and chat.",
                   style="Hint.TLabel").pack(anchor="w", pady=(2, 10))
         ttk.Button(host, text="Host", style="Big.TButton", command=self.host).pack(fill="x")
 

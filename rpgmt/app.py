@@ -162,7 +162,7 @@ class App:
         ttk.Checkbutton(opts, text="Hold the game until everyone has read", variable=self.blocking_var,
                         command=self._apply_blocking).grid(row=2, column=0, columnspan=2, sticky="w")
 
-        # --- now reading ----------------------------------------------------
+        # --- now: current line, who's in, detection ---------------------------
         card, now = theme.card(right, "Now")
         card.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         now.columnconfigure(0, weight=1)
@@ -485,11 +485,11 @@ class App:
         self.detector.paused = not self.detector.paused
         if self.detector.paused:
             self.gate.engaged = False
-            self.overlay.flash("\u23f8 Paused  (F8 to resume)", theme.MUTED)
+            self.overlay.flash("\u23f8 Paused", theme.MUTED)
         else:
             self.overlay.flash("\u25b6 Resumed", theme.OK)
         self.pause_btn.configure(text="Resume (F8)" if self.detector.paused else "Pause (F8)")
-        self.log("Paused - no reading status, game input is normal" if self.detector.paused else "Resumed")
+        self.log("Paused - lines aren't tracked, game input is normal" if self.detector.paused else "Resumed")
 
     def _apply_clean(self):
         if self.detector:

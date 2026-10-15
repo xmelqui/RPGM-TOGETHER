@@ -34,7 +34,7 @@ VERSION_FILE.write_text(f"""VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904B0', [
       StringStruct('ProductName', 'RPGMT'),
-      StringStruct('FileDescription', 'RPGMT - Reading lobby for RPG Maker games'),
+      StringStruct('FileDescription', 'RPGMT - Play RPG Maker games together'),
       StringStruct('FileVersion', '{VERSION}'),
       StringStruct('ProductVersion', '{VERSION}'),
       StringStruct('OriginalFilename', 'RPGMT.exe'),

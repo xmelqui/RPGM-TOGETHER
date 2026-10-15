@@ -1,4 +1,5 @@
-"""Click-through windows drawn on top of the game: the status bubble and viewers' pings.
+"""Click-through windows drawn on top of the game: the read-count badge, friends' pings,
+drawings and chat.
 
 They're separate always-on-top windows (works for every engine without touching
 the game), so they show up when the host shares their screen on Discord. They
@@ -360,9 +361,9 @@ class Overlay:
         self.win.attributes("-topmost", True)
         self.win.attributes("-transparentcolor", KEY)
         self.win.configure(bg=KEY)
-        self.box = tk.Frame(self.win, bg="#14121f", highlightthickness=2, highlightbackground="#5b4f9e")
+        self.box = tk.Frame(self.win, bg="#14121f", highlightthickness=1, highlightbackground="#3b3363")
         self.box.pack()
-        self.label = tk.Label(self.box, bg="#14121f", fg=WAIT_COLOR, padx=12, pady=6)
+        self.label = tk.Label(self.box, bg="#14121f", fg=WAIT_COLOR, padx=7, pady=1)
         self.label.pack()
         self._styled = False
         self._font_px = None
@@ -399,9 +400,8 @@ class Overlay:
                 return None
         done = sum(p["read"] for p in players)
         if s.get("advancing") or done == len(players):
-            return "✓ Everyone read", DONE_COLOR
-        waiting = [p["name"] for p in players if not p["read"]]
-        return f"Waiting for {', '.join(waiting)}  ({done}/{len(players)})", WAIT_COLOR
+            return f"✓ {done}/{len(players)}", DONE_COLOR
+        return f"{done}/{len(players)}", WAIT_COLOR  # small on purpose: the host just needs the count
 
     def _tick(self):
         try:
@@ -421,7 +421,7 @@ class Overlay:
             self._hide()
             return
         l, t, r, b = rect
-        font_px = max(12, min(22, (b - t) // 34))
+        font_px = max(10, min(15, (b - t) // 48))
         if font_px != self._font_px:
             self._font_px = font_px
             self.label.configure(font=("Segoe UI", -font_px, "bold"))
