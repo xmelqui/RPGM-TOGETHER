@@ -4,6 +4,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from . import invite
 from .lobby import PORT
 
 
@@ -11,6 +12,10 @@ def lobby_url(address, name):
     """'26.1.2.3' / '26.1.2.3:47800/?code=ABC123' / 'https://x.trycloudflare.com/?code=..'
     -> page URL with the name (and the lobby code, if the link had one)."""
     address = address.strip()
+    found = invite.parse(address)  # invite page / rpgmt:// link
+    if found:
+        scheme, host, code = found
+        return f"{scheme}://{host}/?{urllib.parse.urlencode({'name': name or 'Player', 'code': code})}"
     if "://" not in address:
         address = "http://" + address
     parts = urllib.parse.urlsplit(address)

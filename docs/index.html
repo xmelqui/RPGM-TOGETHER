@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RPGMT - Play RPG Maker games together</title>
+<meta name="description" content="One person plays; friends watch live with sound, ping, draw and chat, and follow the story line by line.">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  :root { --bg:#14121f; --panel:#1f1b33; --border:#3b3363; --text:#f1eefc; --muted:#a59fc4; --accent:#7c6cff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 system-ui, "Segoe UI", sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:40px 16px 56px; text-align:center; }
+  img.icon { width:96px; image-rendering:pixelated; }
+  h1 { margin:8px 0 0; font-size:34px; }
+  .lead { color:var(--muted); font-size:18px; margin:6px auto 24px; max-width:560px; }
+  .btn { display:inline-block; margin:4px; padding:12px 22px; border-radius:10px; font-weight:700; text-decoration:none;
+         color:#fff; background:var(--accent); }
+  .btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+  img.shot { width:100%; border-radius:12px; border:1px solid var(--border); margin-top:32px; }
+  ul { text-align:left; max-width:560px; margin:24px auto 0; color:var(--muted); }
+  ul b { color:var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <img class="icon" src="icon.png" alt="RPGMT icon">
+  <h1>RPGMT</h1>
+  <p class="lead">Play RPG Maker games together. One person plays; friends watch live with sound, ping, draw and chat.</p>
+  <a class="btn" href="https://github.com/xmelqui/RPGM-TOGETHER/releases/latest">Download for Windows</a>
+  <a class="btn ghost" href="https://github.com/xmelqui/RPGM-TOGETHER">Source &amp; guide</a>
+  <img class="shot" src="viewer.png" alt="A friend's view: the game with a drawn circle, a ping, member pills and chat">
+  <ul>
+    <li><b>Watch together</b> with only the game's sound.</li>
+    <li><b>Click to ping, drag to draw</b> on the host's screen.</li>
+    <li><b>Chat</b> that floats over the game.</li>
+    <li><b>Read along:</b> a small badge shows the host how many friends have read the line.</li>
+    <li><b>Any RPG Maker game</b>, over Hamachi, Radmin VPN, ZeroTier, Tailscale or LAN. Free and open source (MIT).</li>
+  </ul>
+</main>
+</body>
+</html>

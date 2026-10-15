@@ -6,12 +6,13 @@ import queue
 import threading
 import time
 import tkinter as tk
+import urllib.parse
 import webbrowser
 from tkinter import messagebox, ttk
 
 from PIL import ImageTk
 
-from . import __version__, netinfo, ocr, theme, wincap, winutil
+from . import __version__, invite, netinfo, ocr, theme, wincap, winutil
 from .detector import Detector, screen_text
 from .gate import InputGate
 from .lobby import HOST_ID, Lobby
@@ -366,7 +367,7 @@ class App:
             addresses = netinfo.join_addresses()
             if addresses:
                 # Full http:// address: browsers otherwise try https and fail.
-                self.link_var.set(f"http://{addresses[0][1]}:{port}/?code={code}")
+                self.link_var.set(invite.make(f"{addresses[0][1]}:{port}", code, self.settings["name"]))
                 for name, ip in addresses:
                     self.log(f"Friends can join at http://{ip}:{port}/?code={code}  ({name})")
             else:
@@ -394,7 +395,11 @@ class App:
                              None, list(self.ping_layer.strokes.values()))
 
     def _got_url(self, url):
-        self.link_var.set(f"{url}/?code={self.lobby.code}" if self.lobby else url)
+        host = urllib.parse.urlsplit(url).hostname or ""
+        if self.lobby and host.endswith(".trycloudflare.com"):
+            self.link_var.set(invite.make(host, self.lobby.code, self.settings["name"]))
+        else:
+            self.link_var.set(f"{url}/?code={self.lobby.code}" if self.lobby else url)
         self.log("Online link ready - share it with your friends!")
 
     def _tunnel_failed(self, err, local):

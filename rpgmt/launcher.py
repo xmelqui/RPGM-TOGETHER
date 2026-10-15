@@ -4,7 +4,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from . import __version__, app, theme, viewer, winutil
+from . import __version__, app, invite, theme, viewer, winutil
 
 BG, PANEL, TEXT, MUTED, ACCENT = "#14121f", "#1f1b33", "#f1eefc", "#a59fc4", "#7c6cff"
 
@@ -50,7 +50,7 @@ class Launcher:
         ttk.Label(join, text="Your name", style="Hint.TLabel").pack(anchor="w", pady=(8, 2))
         self.name_var = tk.StringVar(value=settings.get("join_name", ""))
         ttk.Entry(join, textvariable=self.name_var, width=42).pack(fill="x", ipady=4)
-        ttk.Label(join, text="Link from the host (e.g. http://26.1.2.3:47800/?code=K7P2QX)",
+        ttk.Label(join, text="Invite link from the host (or their address, e.g. 26.1.2.3)",
                   style="Hint.TLabel").pack(anchor="w", pady=(8, 2))
         self.addr_var = tk.StringVar(value=settings.get("join_address", ""))
         addr = ttk.Entry(join, textvariable=self.addr_var, width=42)
@@ -87,6 +87,19 @@ class Launcher:
         self.root.destroy()
 
 
+def open_lobby(address, name):
+    """Join straight from an invite link (no launcher window)."""
+    url = viewer.lobby_url(address, name)
+    problem = viewer.check_reachable(url)
+    if problem:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showwarning("RPGMT", problem, parent=root)
+        root.destroy()
+        return
+    viewer.run(url)
+
+
 def main():
     winutil.set_dpi_aware()
     args = sys.argv[1:]
@@ -96,15 +109,32 @@ def main():
         if "--quiet" not in args:
             os.startfile(selftest.REPORT)  # noqa: S606 - show the report to the user
         sys.exit(0 if ok else 1)
+    invite.register_if_frozen()
     if args[:1] == ["--host"]:
         app.main()
         return
+    if args[:1] == ["--open"] and len(args) >= 2:
+        # Clicked "Open in RPGMT" on an invite page: join right away if we know the name.
+        try:
+            viewer.lobby_url(args[1], "Player")
+        except ValueError as e:
+            messagebox.showwarning("RPGMT", str(e))
+            return
+        name = app.load_settings().get("join_name", "")
+        if name:
+            open_lobby(args[1], name)
+            return
+        prefill = args[1]
+    else:
+        prefill = ""
     if args[:1] == ["--join"] and len(args) >= 2:
         viewer.run(viewer.lobby_url(args[1], args[2] if len(args) > 2 else "Player"))
         return
 
     root = tk.Tk()
     launcher = Launcher(root)
+    if prefill:
+        launcher.addr_var.set(prefill)
     root.mainloop()
     if not launcher.choice:
         return

@@ -47,7 +47,7 @@ Grab **`RPGMT-x.y.z.zip`** from the [latest release](https://github.com/xmelqui/
 3. Choose how friends connect:
    - **Local network / VPN** (default): Hamachi, Radmin VPN, ZeroTier, Tailscale, or the same home network. Video and sound go straight between your PCs.
    - **Online link through Cloudflare:** for friends without a VPN.
-4. Click **Create Lobby** and send friends the link RPGMT shows, e.g. `http://26.1.2.3:47800/?code=K7P2QX`. It includes the lobby code.
+4. Click **Create Lobby** and send friends the invite link RPGMT shows, e.g. `https://xmelqui.github.io/RPGM-TOGETHER/join/#26.1.2.3:47800/K7P2QX/Ana`. It includes the lobby code and your name. The invite page is a plain static page: the address after `#` stays in your friend's browser and is never sent to GitHub.
 5. Play normally. Any text on screen counts as a line, so **press F8 while in menus** (and again to resume).
 
 The first time, **Windows Firewall** asks whether RPGMT may use the network. Allow it, and tick *Public* too if you use Hamachi or Radmin, or friends can't connect.
@@ -56,7 +56,7 @@ The first time, **Windows Firewall** asks whether RPGMT may use the network. All
 
 ## Joining
 
-Open `RPGMT.exe` → **Join**, enter your name, paste the host's link, and click **Join**. (Anyone can also open the link in a browser.)
+Open the host's invite link and click **Open in RPGMT** (it joins straight away once RPGMT has been run once), or **Watch in your browser**. You can also open `RPGMT.exe` → **Join**, enter your name, paste the link, and click **Join**.
 
 | Key | What it does |
 | --- | --- |
@@ -111,6 +111,8 @@ run.bat
 | `rpgmt/overlay.py` | Status bubble, pings, drawings and chat over the host's game |
 | `rpgmt/gate.py` | Holds the host's confirm keys in "hold the game" mode |
 | `rpgmt/viewer.py`, `rpgmt/web/index.html` | The friend's viewer |
+| `rpgmt/invite.py` | Invite links and the `rpgmt://` link handler |
+| `docs/` | The GitHub Pages site, including the invite page (`docs/join/`) |
 | `rpgmt/tunnel.py` | Optional Cloudflare link (signature-checked `cloudflared`) |
 | `tools/make_icon.py` | Draws the pixel-art icon |
 

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Join an RPGMT lobby</title>
+<meta name="description" content="You're invited to play an RPG Maker game together with RPGMT.">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>
+  :root { --bg:#14121f; --panel:#1f1b33; --border:#3b3363; --text:#f1eefc; --muted:#a59fc4;
+          --accent:#7c6cff; --accent2:#6a5af0; --warn:#f2b84b; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, "Segoe UI", sans-serif;
+         display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+  main { width:100%; max-width:440px; background:var(--panel); border:1px solid var(--border); border-radius:16px;
+         padding:28px 24px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.45); }
+  img.icon { width:84px; height:84px; image-rendering:pixelated; }
+  h1 { font-size:22px; margin:12px 0 4px; }
+  p { margin:6px 0; color:var(--muted); }
+  .who { color:var(--text); font-weight:700; }
+  .btn { display:block; width:100%; margin-top:12px; padding:13px 16px; border-radius:10px; font-weight:700;
+         font-size:16px; text-decoration:none; color:#fff; background:var(--accent); border:0; cursor:pointer; }
+  .btn:hover { background:var(--accent2); }
+  .btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .btn.ghost:hover { background:#2a2545; }
+  .small { font-size:13px; margin-top:16px; }
+  .small a { color:var(--muted); }
+  code { background:#2a2545; padding:1px 6px; border-radius:6px; color:var(--text); font-size:14px; }
+  .error { color:var(--warn); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <img class="icon" src="../icon.png" alt="RPGMT icon: a pixel-art door with a speech bubble">
+
+  <section id="invite" class="hidden">
+    <h1><span class="who" id="from">A friend</span> invites you to play</h1>
+    <p>Watch their RPG Maker game live, chat, ping and draw on the screen.</p>
+    <a class="btn" id="openApp" href="#">Open in RPGMT</a>
+    <a class="btn ghost" id="openBrowser" href="#" rel="noreferrer">Watch in your browser</a>
+    <p class="small">Don't have RPGMT? <a href="https://github.com/xmelqui/RPGM-TOGETHER/releases/latest">Download it</a> (free, Windows).</p>
+    <p class="small" id="vpnNote">This lobby is on a private network (VPN or LAN): you need to be on the same
+      network as the host, e.g. the same Hamachi or Radmin VPN network.</p>
+  </section>
+
+  <section id="bad" class="hidden">
+    <h1>This invite link looks broken</h1>
+    <p class="error">Ask your friend to copy the link from RPGMT again.</p>
+    <a class="btn ghost" href="https://github.com/xmelqui/RPGM-TOGETHER">What is RPGMT?</a>
+  </section>
+</main>
+<script>
+// Invite format (everything after "#", which browsers never send to GitHub):
+//   #<host>:<port>/<CODE>[/<host name>]          lobby on a VPN or local network (plain http)
+//   #<name>.trycloudflare.com/<CODE>[/<host name>]   lobby behind RPGMT's Cloudflare link (https)
+// Only those two kinds of address are accepted, so this page can't be used to send
+// people to some other website.
+const IPV4_PORT = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}:\d{2,5}$/;
+const TUNNEL = /^[a-z0-9-]{1,63}\.trycloudflare\.com$/;
+const CODE = /^[A-HJ-NP-Z2-9]{6}$/;
+
+function parseInvite(hash) {
+  const parts = decodeURIComponent(hash.replace(/^#/, "")).split("/");
+  if (parts.length < 2) return null;
+  const host = parts[0].toLowerCase(), code = parts[1].toUpperCase();
+  const name = (parts[2] || "").replace(/[^\p{L}\p{N} ._\-]/gu, "").trim().slice(0, 24);
+  if (!CODE.test(code)) return null;
+  if (IPV4_PORT.test(host)) {
+    const port = Number(host.split(":")[1]);
+    if (port < 1 || port > 65535) return null;
+    return { host, code, name, browserUrl: `http://${host}/?code=${code}`, vpn: true };
+  }
+  if (TUNNEL.test(host)) return { host, code, name, browserUrl: `https://${host}/?code=${code}`, vpn: false };
+  return null;
+}
+
+const invite = parseInvite(location.hash);
+if (!invite) {
+  document.getElementById("bad").classList.remove("hidden");
+} else {
+  if (invite.name) {
+    document.getElementById("from").textContent = invite.name;  // text only, never HTML
+    document.title = `${invite.name} invites you - RPGMT`;
+  }
+  document.getElementById("openApp").href = `rpgmt://join/${invite.host}/${invite.code}`;
+  document.getElementById("openBrowser").href = invite.browserUrl;
+  document.getElementById("vpnNote").classList.toggle("hidden", !invite.vpn);
+  document.getElementById("invite").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
