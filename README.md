@@ -65,7 +65,7 @@ Open `RPGMT.exe` → **Join**, enter your name, paste the host's link, and click
 | **Drag** | Draw on the host's screen (fades 3 s after you let go) |
 | **T** | Chat: Enter sends, Esc closes |
 
-The sound and chat toggles appear in the game's bottom-left corner when you move the mouse there.
+The mute button and volume slider appear in the game's bottom-left corner when you move the mouse there. Chat is always on (the host can turn it off for everyone).
 
 ## Privacy & security
 

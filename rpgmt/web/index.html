@@ -52,7 +52,7 @@
             border:3px solid var(--c); pointer-events:none; animation:ripple .6s ease-out forwards; }
   @keyframes ripple { from { transform:scale(.3); opacity:1; } to { transform:scale(1.6); opacity:0; } }
 
-  /* Sound / chat controls: bottom-left of the game, only when the mouse is near. */
+  /* Sound controls: bottom-left of the game, only when the mouse is near. */
   #controls { position:absolute; left:calc(var(--gl, 0px) + 8px); bottom:calc(var(--gb, 0px) + 8px);
               display:flex; align-items:center; gap:6px; padding:4px 6px; line-height:normal; z-index:2;
               border-radius:10px; background:var(--glass); cursor:default;
@@ -118,7 +118,6 @@
     <div id="controls">
       <button id="muteBtn" class="tool" title="Mute / unmute the game">&#128266;</button>
       <input id="vol" type="range" min="0" max="1" step="0.05" value="1" title="Game volume">
-      <button id="chatBtn" class="tool" title="Show / hide the chat">&#128172;</button>
     </div>
     <div id="dock">
       <ul id="players"></ul>
@@ -560,15 +559,15 @@ function sendRead() {
   ws.send(JSON.stringify({ type: "read", msgId: state.message.id }));
 }
 
-// --- toggles: mute and chat (remembered) --------------------------------------------
-let muted = false, chatHidden = false;
+// --- mute (remembered) and chat (always on, unless the host turns it off) -------------
+let muted = false;
 try {
   muted = localStorage.getItem("rpgmt-muted") === "1";
-  chatHidden = localStorage.getItem("rpgmt-chat-hidden") === "1";
+  localStorage.removeItem("rpgmt-chat-hidden");  // left over from the old chat toggle
 } catch (e) {}
 
 function chatOff() {
-  return chatHidden || (state && state.chat === false);  // the host can turn chat off for everyone
+  return !!(state && state.chat === false);  // only the host can turn chat off, for everyone
 }
 
 function applyMute() {
@@ -579,18 +578,13 @@ function applyMute() {
 }
 
 function applyChatVisibility() {
-  const allowed = !state || state.chat !== false;
-  // Hiding the chat keeps the member list.
+  // With chat off, the member list stays.
   $("chatBox").classList.toggle("hidden", chatOff());
-  $("chatBtn").classList.toggle("hidden", !allowed);
-  $("chatBtn").classList.toggle("off", chatHidden);
   if (chatOff() && document.activeElement === $("chatInput")) $("chatInput").blur();
   updateDock();
-  try { localStorage.setItem("rpgmt-chat-hidden", chatHidden ? "1" : "0"); } catch (e) {}
 }
 
 $("muteBtn").onclick = () => { muted = !muted; applyMute(); if (!muted) playVideo(); };
-$("chatBtn").onclick = () => { chatHidden = !chatHidden; applyChatVisibility(); };
 applyMute();
 applyChatVisibility();
 
