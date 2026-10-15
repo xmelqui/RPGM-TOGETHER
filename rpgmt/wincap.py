@@ -5,8 +5,10 @@ anything (unlike PrintWindow, which broke rendering in some games). Our own
 overlay windows aren't in the picture either; the stream draws pings itself.
 """
 import ctypes
+import sys
 import threading
 import time
+import types
 from ctypes import wintypes
 
 from PIL import Image
@@ -17,6 +19,20 @@ DWMWA_EXTENDED_FRAME_BOUNDS = 9
 STALE_AFTER = 1.5  # seconds without frames before we stop trusting the capture
 dwmapi = ctypes.WinDLL("dwmapi")
 dwmapi.DwmGetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
+
+
+def _stub_opencv():
+    """windows_capture imports OpenCV (a 112 MB library) only for its "save frame to a
+    file" helper, which RPGMT never uses. The app is built without OpenCV, so hand it
+    a stand-in module."""
+    if "cv2" in sys.modules:
+        return
+    try:
+        import cv2  # noqa: F401 - present when running from source
+    except ImportError:
+        stub = types.ModuleType("cv2")
+        stub.imwrite = lambda *args, **kwargs: False
+        sys.modules["cv2"] = stub
 
 
 def _client_offset(hwnd):
@@ -45,6 +61,7 @@ class WindowCapture:
 
     def _start(self):
         try:
+            _stub_opencv()
             from windows_capture import WindowsCapture
         except ImportError as e:
             self.failed = e

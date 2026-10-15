@@ -41,6 +41,8 @@ CHAT_LIFE = 12.0     # seconds a chat message stays on the host's screen
 CHAT_LINES = 5
 STROKE_LIFE = 3.0      # seconds a drawing stays after the viewer lets go of the mouse
 STROKE_STALE = 15.0    # a drawing that never got finished (viewer left) disappears after this
+MAX_STROKE_POINTS = 6000     # all drawings on screen together (redrawn ~30x a second)
+MAX_STROKES_PER_PLAYER = 3   # lines one viewer can have on screen at once
 STACK_DIST = 0.05    # pings this close (fraction of the game screen) stack into one counter
 FRAME_MS = 33
 
@@ -86,10 +88,17 @@ class PingLayer:
         key = (pid, stroke_id)
         st = self.strokes.get(key)
         if st is None:
-            if len(self.strokes) > 40:  # someone spamming lines: drop the oldest
-                self.strokes.pop(next(iter(self.strokes)))
+            mine = [k for k in self.strokes if k[0] == pid]
+            if len(mine) >= MAX_STROKES_PER_PLAYER:  # this viewer's oldest line makes room
+                self.strokes.pop(mine[0])
             st = self.strokes[key] = {"name": name, "color": color, "points": [], "done_at": None, "at": now}
         st["points"].extend(points)
+        total = sum(len(v["points"]) for v in self.strokes.values())
+        while total > MAX_STROKE_POINTS and len(self.strokes) > 1:  # too much ink: oldest lines go first
+            oldest = next(iter(self.strokes))
+            total -= len(self.strokes.pop(oldest)["points"])
+        if total > MAX_STROKE_POINTS:
+            del st["points"][: total - MAX_STROKE_POINTS]
         st["at"] = now
         if done:
             st["done_at"] = now

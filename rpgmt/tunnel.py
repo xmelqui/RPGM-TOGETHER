@@ -26,7 +26,9 @@ def signed_by_cloudflare(path):
               "if ($s.Status -eq 'Valid' -and $s.SignerCertificate.Subject -match 'O=\"?Cloudflare') "
               "{ 'ok' } else { 'bad' }")
     try:
-        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        powershell = pathlib.Path(os.environ.get("SystemRoot", r"C:\Windows"),
+                                  "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+        out = subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
                              capture_output=True, text=True, timeout=30,
                              env={**os.environ, "RPGMT_CHECK_FILE": str(path)},
                              creationflags=subprocess.CREATE_NO_WINDOW)

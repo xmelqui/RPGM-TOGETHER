@@ -214,6 +214,8 @@ class App:
     def _log(self, text):
         line = f"{time.strftime('%H:%M:%S')}  {text}"
         try:
+            if LOG_FILE.exists() and LOG_FILE.stat().st_size > 5 * 1024 * 1024:
+                LOG_FILE.replace(LOG_FILE.with_suffix(".old.log"))  # keep one previous log
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
         except OSError:

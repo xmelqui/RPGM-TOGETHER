@@ -14,6 +14,8 @@ def lobby_url(address, name):
     if "://" not in address:
         address = "http://" + address
     parts = urllib.parse.urlsplit(address)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        raise ValueError("That doesn't look like an RPGMT link (it should start with http:// or https://).")
     netloc = parts.netloc
     if parts.scheme == "http" and parts.port is None:
         netloc = f"{netloc}:{PORT}"

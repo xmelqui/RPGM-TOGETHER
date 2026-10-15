@@ -91,8 +91,10 @@ for anyone who can't run the app.
   lobby gets a new code. Share the link only with people you want in.
 - **No secret joining from websites:** the lobby only accepts connections from its
   own page. Other websites (and "DNS rebinding" tricks) are refused.
-- **Limits:** up to 16 friends, a size limit on messages, rate limits on chat,
-  pings and video reconnects, and names that can't impersonate the host.
+- **Limits:** up to 16 friends and 48 open connections, a size limit on messages,
+  rate limits on chat, pings, drawing and video reconnects, and names that can't
+  impersonate the host. Connections that don't join within 10 seconds are closed,
+  and an address that enters 10 wrong codes is blocked for 10 minutes.
   Invisible and right-to-left characters are stripped from names and chat, and
   chat is always shown as plain text.
 - **Your PC:** friends can't send keys or files to your PC. The only key RPGMT

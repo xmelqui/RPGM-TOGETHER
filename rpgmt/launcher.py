@@ -68,7 +68,11 @@ class Launcher:
         if not address:
             messagebox.showinfo("RPGMT", "Ask the host for their address and paste it here.")
             return
-        url = viewer.lobby_url(address, name)
+        try:
+            url = viewer.lobby_url(address, name)
+        except ValueError as e:
+            messagebox.showwarning("RPGMT", str(e))
+            return
         self.root.configure(cursor="watch")
         self.root.update()
         problem = viewer.check_reachable(url)

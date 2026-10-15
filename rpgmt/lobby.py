@@ -33,6 +33,33 @@ MAX_PLAYERS = 16                  # friends per lobby (protects the host's PC an
 MAX_WS_MESSAGE = 64 * 1024        # bytes; the biggest real message (a WebRTC answer) is a few KB
 STREAM_REQUEST_GAP = 3.0          # seconds between video (re)connections per player
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I mix-ups
+MAX_CONNECTIONS = 48              # open lobby connections (joined or not)
+JOIN_TIMEOUT = 10.0               # seconds a new connection gets to send a correct "join"
+MAX_BAD_CODES = 10                # wrong codes from one address before it's blocked...
+BAD_CODE_BLOCK = 600.0            # ...for this many seconds
+
+
+def safe_int(text):
+    """json.loads hook: huge numbers cost a lot of CPU to convert (Python 3.10.0 has no
+    limit), and no real message needs more than a few digits."""
+    return int(text) if len(text) <= 15 else 0
+
+
+def parse_message(raw):
+    try:
+        data = json.loads(raw, parse_int=safe_int)
+    except (ValueError, RecursionError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def client_address(request):
+    """Who is connecting. Behind the Cloudflare tunnel every request comes from this PC,
+    so the visitor's address comes from Cloudflare's header (only trusted from localhost)."""
+    remote = request.remote or ""
+    if remote in ("127.0.0.1", "::1") and "Cf-Connecting-Ip" in request.headers:
+        return request.headers["Cf-Connecting-Ip"]
+    return remote
 
 
 def new_code():
@@ -98,6 +125,8 @@ class Lobby:
         self.chat = collections.deque(maxlen=CHAT_HISTORY)
         self.code = new_code()         # friends need it to join (it's in the link the host shares)
         self.tokens = {}               # player id -> secret for the still-picture endpoint
+        self.connections = 0
+        self.bad_codes = {}            # address -> (wrong attempts, time of the last one)
         self.players = {HOST_ID: {"name": host_name, "host": True, "color": HOST_COLOR}}
         self.pings_enabled = True
         self.chat_enabled = True
@@ -291,26 +320,47 @@ class Lobby:
         return web.Response(body=self.frame, content_type="image/jpeg",
                             headers={"Cache-Control": "no-store"})
 
+    def _blocked(self, address):
+        attempts, last = self.bad_codes.get(address, (0, 0.0))
+        if attempts and time.monotonic() - last > BAD_CODE_BLOCK:
+            self.bad_codes.pop(address, None)
+            return False
+        return attempts >= MAX_BAD_CODES
+
+    def _bad_code(self, address):
+        attempts, _ = self.bad_codes.get(address, (0, 0.0))
+        if len(self.bad_codes) > 10_000:  # don't let address spoofing grow this forever
+            self.bad_codes.clear()
+        self.bad_codes[address] = (attempts + 1, time.monotonic())
+
     async def _ws(self, request):
         if not allowed_request(request):
             raise web.HTTPForbidden()
+        address = client_address(request)
+        if self.connections >= MAX_CONNECTIONS or self._blocked(address):
+            raise web.HTTPTooManyRequests()
         ws = web.WebSocketResponse(heartbeat=20, max_msg_size=MAX_WS_MESSAGE)
         await ws.prepare(request)
+        self.connections += 1
         pid = None
         last_stream_request = 0.0
+
+        async def join_deadline():
+            await asyncio.sleep(JOIN_TIMEOUT)
+            if pid is None:  # connected but never joined: free the slot
+                await ws.close()
+        deadline = asyncio.ensure_future(join_deadline())
         try:
             async for msg in ws:
                 if msg.type != WSMsgType.TEXT:
                     continue
-                try:
-                    data = json.loads(msg.data)
-                except ValueError:
-                    continue
-                if not isinstance(data, dict):
+                data = parse_message(msg.data)
+                if data is None:
                     continue
                 kind = data.get("type")
                 if kind == "join" and pid is None:
                     if not hmac.compare_digest(str(data.get("code", "")).strip().upper(), self.code):
+                        self._bad_code(address)
                         await ws.send_str(json.dumps({"type": "join-error", "error": "code"}))
                         await asyncio.sleep(1)  # slows down guessing
                         break
@@ -351,6 +401,8 @@ class Lobby:
                     except Exception:  # noqa: BLE001 - a broken answer only affects that viewer
                         await ws.send_str(json.dumps({"type": "stream-error", "error": "bad answer"}))
         finally:
+            self.connections -= 1
+            deadline.cancel()
             if pid is not None:
                 if self.streamer:
                     await self.streamer.close(pid)

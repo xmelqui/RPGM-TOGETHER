@@ -55,5 +55,9 @@ PyInstaller.__main__.run([
     "--collect-all", "aiortc", "--collect-all", "av", "--collect-all", "pylibsrtp",
     "--collect-all", "aioice", "--collect-all", "webview", "--collect-all", "windows_capture",
     "--hidden-import", "comtypes.stream",
+    "--exclude-module", "setuptools", "--exclude-module", "pkg_resources",
+    "--exclude-module", "numpy.distutils", "--exclude-module", "distutils",
+    # OpenCV only comes along as a windows_capture dependency RPGMT doesn't use (see wincap.py).
+    "--exclude-module", "cv2",
     "RPGMT.py",
 ])
