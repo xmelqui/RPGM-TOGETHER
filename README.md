@@ -40,6 +40,12 @@ Grab **`RPGMT-x.y.z.zip`** from the [latest release](https://github.com/xmelqui/
 
 > **First run:** Windows SmartScreen may say *"Windows protected your PC"* because the app isn't code-signed. Click **More info → Run anyway**.
 
+### Is it safe?
+
+- **Virus scans:** every release from 1.0.11 on lists a [VirusTotal](https://www.virustotal.com) scan of the zip and of `RPGMT.exe`, along with their SHA-256 fingerprints, so you can check that your download is the same file.
+- **Open source:** all the code is in this repository, and the release is built straight from it with PyInstaller (see [Building from source](#building-from-source)).
+- **False alarms:** apps packed with PyInstaller sometimes get flagged by a few lesser-known antivirus engines, because some malware uses the same packer. RPGMT uses a self-compiled loader to keep this to a minimum. If the big names (Microsoft, Kaspersky, ESET, BitDefender…) say clean, it's a false positive.
+
 ## Hosting
 
 1. Open `RPGMT.exe` → **Host**.
@@ -94,6 +100,8 @@ run.bat
 ```bash
 .venv\Scripts\python build_exe.py
 ```
+
+Official releases use a PyInstaller loader compiled from source (with the free Visual Studio C++ Build Tools) rather than the stock one, which some antivirus engines flag because malware uses it too. To do the same: download the PyInstaller source (`pip download --no-binary :all: --no-deps pyinstaller==<version>`), unpack it, run `python waf all` in its `bootloader` folder, then `pip install` the unpacked folder into `.venv`.
 
 <details>
 <summary>How it works / project layout</summary>
